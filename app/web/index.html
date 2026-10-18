@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LegalLens Workspace</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one calm reading column (max ~860px). Header → always-visible disclaimer → four tabs → one module at a time. Native controls first: tabs, <details> disclosures, real lists. */
+:root {
+  --bg: #F6F7F9;
+  --surface: #FFFFFF;
+  --ink: #12161D;
+  --muted: #4A5361;
+  --line: #DADFE6;
+  --accent: #2443B8;
+  --accent-soft: #E9EDFA;
+  --attn: #A3231A;   --attn-soft: #FBECEA;
+  --check: #7A4B00;  --check-soft: #FBF1DE;
+  --std: #4A5361;    --std-soft: #EEF0F3;
+  --ok: #1B6537;     --ok-soft: #E5F2EA;
+  --hl: #FFE58A;
+  --f-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --f-doc: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --f-id: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111418; --surface: #191D23; --ink: #ECEFF3; --muted: #A9B2BF; --line: #2E3540;
+  --accent: #9DB2FF; --accent-soft: #1E2843; --attn: #FF9B92; --attn-soft: #3A1F1D;
+  --check: #F2C66E; --check-soft: #352A14; --std: #B4BCC8; --std-soft: #232830; --ok: #82D9A4; --ok-soft: #18301F;
+  --hl: #5E4C0C; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111418; --surface: #191D23; --ink: #ECEFF3; --muted: #A9B2BF; --line: #2E3540;
+  --accent: #9DB2FF; --accent-soft: #1E2843; --attn: #FF9B92; --attn-soft: #3A1F1D;
+  --check: #F2C66E; --check-soft: #352A14; --std: #B4BCC8; --std-soft: #232830; --ok: #82D9A4; --ok-soft: #18301F;
+  --hl: #5E4C0C; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-ui); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.col { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.skip { position: absolute; left: -9999px; top: 8px; background: var(--accent); color: var(--surface); padding: 8px 14px; border-radius: 6px; z-index: 10; }
+.skip:focus { left: 16px; }
+
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); }
+header .col { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-block: 12px; }
+.brand { font: 600 20px/1 var(--f-doc); display: flex; gap: 8px; align-items: center; }
+.brand svg { width: 22px; height: 22px; color: var(--accent); }
+.file { color: var(--muted); font-size: 15px; min-width: 0; overflow-wrap: anywhere; }
+.file b { color: var(--ink); font-weight: 600; }
+.hright { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.status { font-size: 14px; color: var(--ok); display: inline-flex; gap: 6px; align-items: center; }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; font-size: 15px; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.primary:hover { color: var(--surface); filter: brightness(1.08); }
+
+.disclaimer { background: var(--check-soft); color: var(--ink); border-bottom: 1px solid var(--line); font-size: 15px; }
+.disclaimer .col { padding-block: 10px; }
+.disclaimer strong { color: var(--check); }
+
+nav.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+nav.tabs .col { display: flex; gap: 4px; overflow-x: auto; }
+.tab { border: 0; background: none; min-height: 48px; padding: 0 14px; font-weight: 600; font-size: 15.5px; color: var(--muted); border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab .n { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+main { padding-block: 24px 48px; }
+.panel { display: grid; gap: 24px; }
+h2 { font: 600 22px/1.3 var(--f-ui); margin: 0; text-wrap: balance; }
+h3 { font: 600 17px/1.35 var(--f-ui); margin: 0; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 64ch; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+
+/* overview */
+.next h2 { font-size: 19px; }
+.next ol { margin: 10px 0 14px; padding-left: 22px; display: grid; gap: 8px; }
+.next li::marker { color: var(--accent); font-weight: 700; }
+.summary { font: 18px/1.75 var(--f-doc); margin: 8px 0 0; max-width: 64ch; }
+.cite { font: 600 13px/1 var(--f-id); color: var(--accent); background: var(--accent-soft); border: 0; border-radius: 4px; padding: 3px 6px; cursor: pointer; vertical-align: 1px; }
+.cite:hover { text-decoration: underline; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 620px) { .facts { grid-template-columns: minmax(0, 1fr); } }
+.tally { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.tally li { display: flex; justify-content: space-between; gap: 10px; }
+.tally a { color: inherit; }
+.num { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cov { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.cov li { display: flex; gap: 8px; }
+.yes { color: var(--ok); font-weight: 700; } .no { color: var(--attn); font-weight: 700; }
+
+/* tier markers: shape + colour + word */
+.tier { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 700; }
+.tier::before { content: ""; width: 10px; height: 10px; flex: none; }
+.tier.attn { color: var(--attn); } .tier.attn::before { background: var(--attn); border-radius: 50%; }
+.tier.check { color: var(--check); } .tier.check::before { background: var(--check); transform: rotate(45deg); }
+.tier.std { color: var(--std); } .tier.std::before { border: 2px solid var(--std); border-radius: 2px; }
+
+/* findings */
+.group { display: grid; gap: 10px; }
+.group > h3 { display: flex; gap: 10px; align-items: baseline; }
+.group > h3 .sub { font-weight: 400; color: var(--muted); font-size: 14.5px; }
+details.finding { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+details.finding[open] { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+details.finding > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; min-height: 48px; }
+details.finding > summary::-webkit-details-marker { display: none; }
+summary .head { font-weight: 600; font-size: 16.5px; }
+summary .gist { grid-column: 1; color: var(--muted); font-size: 15px; }
+summary .chev { grid-row: 1 / span 2; grid-column: 2; align-self: center; color: var(--muted); transition: transform .15s; }
+details[open] summary .chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { summary .chev { transition: none; } }
+.fbody { border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 720px) { .fbody { grid-template-columns: minmax(0, 1fr); } }
+.fbody > div { padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
+.fbody .src { background: var(--std-soft); border-left: 1px solid var(--line); border-radius: 0 0 12px 0; }
+@media (max-width: 720px) { .fbody .src { border-left: 0; border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; } }
+.kicker { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.label { font-size: 14px; color: var(--muted); }
+.label b { color: var(--ink); }
+.note { font-size: 14px; color: var(--muted); margin: 0; }
+.esc { font-size: 15px; border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; }
+.esc.bad { border-color: var(--attn); }
+.srctext { font: 16.5px/1.7 var(--f-doc); margin: 0; }
+mark { background: var(--hl); color: inherit; padding: 0 1px; border-radius: 2px; }
+.ok { color: var(--ok); font-size: 14px; font-weight: 600; }
+.fail { color: var(--attn); font-size: 14px; font-weight: 600; }
+.unvrow { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 15px; }
+.unvrow input { width: 18px; height: 18px; }
+
+/* ask */
+.thread { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.thread .you { font-weight: 600; }
+.thread .you span { color: var(--muted); font-weight: 400; }
+.reply { margin-top: 6px; padding: 14px 16px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; }
+.reply .tag { font-size: 13.5px; font-weight: 700; }
+.reply.cited .tag { color: var(--ok); }
+.reply.silent { background: var(--std-soft); } .reply.silent .tag { color: var(--std); }
+.reply.refused { border-color: var(--check); background: var(--check-soft); } .reply.refused .tag { color: var(--check); }
+.reply.err { border-color: var(--attn); background: var(--attn-soft); } .reply.err .tag { color: var(--attn); }
+.reply p { margin: 0; }
+.reply blockquote { margin: 0; font: 15.5px/1.6 var(--f-doc); border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); }
+.reply ul { margin: 0; padding-left: 20px; }
+form.ask { display: grid; gap: 10px; }
+form.ask label { font-weight: 600; }
+.askrow { display: flex; gap: 8px; }
+.askrow input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { min-height: 36px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 14px; font-size: 14.5px; cursor: pointer; }
+.chips button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* lawyer list */
+ol.law { margin: 0; padding-left: 24px; display: grid; gap: 14px; }
+ol.law li::marker { font-weight: 700; color: var(--accent); }
+ol.law .clause { font: 600 13px var(--f-id); color: var(--accent); display: block; }
+ol.law .bring { color: var(--muted); font-size: 15px; display: block; }
+
+/* states, footer, dialog */
+.state { text-align: left; }
+.steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.steps li { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+.steps li.done { color: var(--ink); } .steps li.done::before { content: "✓"; color: var(--ok); font-weight: 700; width: 18px; }
+.steps li.now { color: var(--ink); font-weight: 600; } .steps li.now::before { content: "●"; color: var(--accent); width: 18px; }
+.steps li.todo::before { content: "○"; width: 18px; }
+.alert { border-left: 4px solid var(--attn); }
+.warnbox { border-left: 4px solid var(--check); background: var(--check-soft); }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 28px 20px; text-align: center; display: grid; gap: 10px; justify-items: center; }
+
+footer { border-top: 1px solid var(--line); }
+footer .col { padding-block: 18px 28px; display: grid; gap: 12px; font-size: 14.5px; color: var(--muted); }
+footer details summary { cursor: pointer; font-weight: 600; color: var(--ink); min-height: 32px; }
+footer .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+footer select { min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 4px 8px; }
+.mono { font: 13px var(--f-id); background: var(--std-soft); padding: 2px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+
+dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; max-width: min(560px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgba(10, 14, 20, .45); }
+dialog .dh { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+dialog .db { padding: 16px; display: grid; gap: 8px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="col">
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M8 9h5M8 12h4"/></svg>LegalLens</div>
+    <div class="file" id="fileLine">Reading <b>rental_clear.txt</b></div>
+    <div class="hright">
+      <span class="status" id="modelStatus">Running on this computer</span>
+      <button class="btn" type="button" id="openBtn">Open document</button>
+      <input type="file" id="fileInput" accept=".pdf,.txt,application/pdf,text/plain" hidden>
+    </div>
+  </div>
+</header>
+<div class="disclaimer" role="note">
+  <div class="col"><strong>Not legal advice.</strong> LegalLens helps you understand this document. It is not a lawyer and cannot tell you whether a clause is valid, legal or enforceable.</div>
+</div>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="col" role="tablist">
+    <button class="tab" role="tab" id="t-overview" aria-controls="overview" aria-selected="true">Overview</button>
+    <button class="tab" role="tab" id="t-findings" aria-controls="findings" aria-selected="false" tabindex="-1">Findings <span class="n" id="nFind"></span></button>
+    <button class="tab" role="tab" id="t-ask" aria-controls="ask" aria-selected="false" tabindex="-1">Ask</button>
+    <button class="tab" role="tab" id="t-lawyer" aria-controls="lawyer" aria-selected="false" tabindex="-1">For your lawyer <span class="n" id="nLaw"></span></button>
+  </div>
+</nav>
+
+<main id="main" class="col" tabindex="-1">
+  <div id="stateArea"></div>
+  <section class="panel" role="tabpanel" id="overview" aria-labelledby="t-overview"></section>
+  <section class="panel" role="tabpanel" id="findings" aria-labelledby="t-findings" hidden></section>
+  <section class="panel" role="tabpanel" id="ask" aria-labelledby="t-ask" hidden></section>
+  <section class="panel" role="tabpanel" id="lawyer" aria-labelledby="t-lawyer" hidden></section>
+</main>
+
+<footer>
+  <div class="col">
+    <div class="row"><span><b style="color:var(--ink)">Private by design.</b> The document, its text and your questions stay on this computer.</span>
+      <button class="btn" type="button" id="clearBtn">Clear session data</button><span id="clearMsg" role="status"></span></div>
+    <details><summary>How privacy is checked</summary>
+      <p>The full analysis is tested with the network switched off, with a connection monitor running, and with an audit of every dependency. This page only talks to the LegalLens program on this computer (<span class="mono">127.0.0.1</span>). The document is held in that program's memory, never saved to disk, and is discarded when you clear the session or close it. Nothing logs document text.</p></details>
+    <div class="row" id="demoRow" hidden><label for="stateSel">Mockup preview:</label>
+      <select id="stateSel"><option value="ready">Analysis ready</option><option value="empty">First run (no document)</option><option value="busy">Analysing</option><option value="inject">Injected instruction found</option><option value="error">Unreadable file</option></select>
+      <span>Sample data, shown because the LegalLens server is not running. Ask answers are canned.</span></div>
+  </div>
+</footer>
+
+<dialog id="srcDialog" aria-labelledby="dlgTitle">
+  <div class="dh"><strong id="dlgTitle">Source</strong><button class="btn" type="button" id="dlgClose">Close</button></div>
+  <div class="db" id="dlgBody"></div>
+</dialog>
+
+<script>
+/* LegalLens web UI.
+   Live mode: talks to app/web_server.py on this machine (GET /api/state, POST /api/analyze, /api/ask, /api/clear).
+   Demo mode: opened as a plain file, or the server is unreachable. Uses the sample data below; Ask answers are canned. */
+
+/* ---------- sample data (demo mode only). Shapes mirror legallens/types.py ---------- */
+const SAMPLE_DOC = {
+  source_name: "rental_clear.txt", pages: 3, warnings: [],
+  passages: [
+    { id: "p1.c1", page: 1, heading: "Rent", text: "The monthly rent shall be Rs. 15,000 (Rupees Fifteen Thousand only), payable on or before the 5th of each month." },
+    { id: "p1.c2", page: 1, heading: "Security deposit", text: "The Tenant shall pay a security deposit of Rs. 45,000 (Rupees Forty-Five Thousand only) at the time of signing this agreement." },
+    { id: "p2.c1", page: 2, heading: "Late payment penalty", text: "If rent is not paid within 5 days of the due date, the Tenant shall pay a late fee of Rs. 500 per day until payment is received." },
+    { id: "p2.c2", page: 2, heading: "Termination", text: "Either party may terminate this agreement by giving 60 days written notice to the other party." },
+    { id: "p3.c1", page: 3, heading: "Maintenance", text: "The Landlord shall be responsible for major structural repairs. The Tenant shall handle minor day-to-day maintenance." },
+  ],
+};
+const SAMPLE_ANALYSIS = {
+  summary: "Rent is Rs. 15,000 a month, due by the 5th [p1.c1]. A security deposit of Rs. 45,000 is paid at signing [p1.c2]. If rent is more than 5 days late, the Tenant pays Rs. 500 for every extra day [p2.c1]. Either side can end the agreement with 60 days' written notice [p2.c2].",
+  coverage: { found: ["obligation", "right", "deadline", "penalty", "termination"], not_found: [] },
+  findings: [
+    { id: "f1", kind: "penalty", party: "Tenant", label: "STATED", confidence: "high", passage_id: "p2.c1", gist: "Rs. 500 a day after 5 days late, with no upper limit",
+      plain_text: "If rent is paid more than 5 days late, the Tenant owes a late fee of Rs. 500 for each day until it is paid. The document sets no upper limit on this fee.",
+      quote: "the Tenant shall pay a late fee of Rs. 500 per day until payment is received", flags: [],
+      escalation_note: "Ask whether a daily late fee with no cap is usual where you live, and whether it can be capped." },
+    { id: "f5", kind: "risk", party: "Tenant", label: "CONCERN", confidence: "high", passage_id: "p1.c2", gist: "No refund date or allowed deductions are stated",
+      plain_text: "The document does not say when or how the deposit is returned, or what can be deducted from it.",
+      quote: "The Tenant shall pay a security deposit of Rs. 45,000", flags: [],
+      escalation_note: "Ask the Landlord to add a refund timeline and a list of allowed deductions." },
+    { id: "f4", kind: "obligation", party: "Tenant", label: "STATED", confidence: "high", passage_id: "p1.c2", gist: "Rs. 45,000 paid when signing",
+      plain_text: "The Tenant pays a security deposit (money held against damage or unpaid rent) of Rs. 45,000 when signing.",
+      quote: "The Tenant shall pay a security deposit of Rs. 45,000", flags: ["jurisdiction_dependent"],
+      escalation_note: "Rules on deposit size and refunds differ by state. Ask what applies where you live." },
+    { id: "f6", kind: "ambiguity", party: "Tenant", label: "CONCERN", confidence: "medium", passage_id: "p3.c1", gist: "“Minor day-to-day maintenance” is not defined",
+      plain_text: "“Minor day-to-day maintenance” is not defined, so it is unclear which repairs the Tenant pays for.",
+      quote: "The Tenant shall handle minor day-to-day maintenance.", flags: ["ambiguous"],
+      escalation_note: "Ask for examples of what counts as minor maintenance, such as plumbing, paint or appliances." },
+    { id: "f9", kind: "deadline", party: "Tenant", label: "STATED", confidence: "high", passage_id: "p1.c1", gist: "Rent is due on or before the 5th of each month",
+      plain_text: "Rent must be paid on or before the 5th of every month.",
+      quote: "payable on or before the 5th of each month", flags: [], escalation_note: null },
+    { id: "f2", kind: "termination", party: "Either party", label: "STATED", confidence: "high", passage_id: "p2.c2", gist: "Either side can end it with 60 days' written notice",
+      plain_text: "Either the Tenant or the Landlord can end the agreement by giving 60 days' notice in writing.",
+      quote: "Either party may terminate this agreement by giving 60 days written notice to the other party.", flags: [], escalation_note: null },
+    { id: "f3", kind: "obligation", party: "Tenant", label: "STATED", confidence: "high", passage_id: "p1.c1", gist: "Rs. 15,000 a month",
+      plain_text: "The Tenant must pay Rs. 15,000 rent every month.",
+      quote: "The monthly rent shall be Rs. 15,000", flags: [], escalation_note: null },
+    { id: "f7", kind: "right", party: "Tenant", label: "INTERPRETATION", confidence: "high", passage_id: "p3.c1", gist: "The Landlord pays for major structural repairs",
+      plain_text: "Our reading: the Tenant can expect the Landlord to pay for major structural repairs.",
+      quote: "The Landlord shall be responsible for major structural repairs.", flags: [], escalation_note: null },
+    { id: "f8", kind: "deadline", party: "Tenant", label: "STATED", confidence: "medium", passage_id: "p2.c1", gist: "Late fees start after 3 days",
+      plain_text: "Late fees start after 3 days.", quote: "If rent is not paid within 5 days of the due date", flags: ["unverified"],
+      escalation_note: null, reason: "The number in the explanation (3) does not appear in the quote (5), so this finding is hidden." },
+  ],
+};
+const SAMPLE_THREAD = [
+  { q: "What happens if I pay rent late?", text: "If rent is more than 5 days late, the document says the Tenant pays a late fee of Rs. 500 per day until it is paid [p2.c1].", citations: [{ passage_id: "p2.c1", quote: "the Tenant shall pay a late fee of Rs. 500 per day" }] },
+  { q: "Can I keep a pet?", silent: true, text: "The document does not appear to say anything about this. You may want to ask the other party directly, or consult a qualified legal professional." },
+  { q: "Is the late fee enforceable?", refused: true, text: "LegalLens can't decide whether a clause is enforceable. That depends on where you live and your circumstances.",
+    esc: { clause: "p2.c1 · Late payment penalty", ask: ["Is a Rs. 500-a-day late fee with no cap allowed where I live?", "Can the fee be capped before I sign?"], bring: "The full agreement and the date you plan to sign." } },
+];
+const INJECT_WARNING = "this document contains text that looks like an instruction to an AI; it was ignored";
+
+/* ---------- constants ---------- */
+// Tiering: attention comes from what a clause does to the reader, not its category alone. Computed here, not by the model.
+const KIND_W = { penalty: 4, risk: 3, concern: 3, deadline: 3, termination: 3, ambiguity: 2, obligation: 2, right: 1 };
+const TIER = { attn: ["Needs attention", "Costs or risks you should raise before signing"], check: ["Worth checking", "Dates, conditions and wording to confirm"], std: ["Standard terms", "Usual clauses, stated plainly"] };
+const LABEL = { STATED: ["From the document", "The quote says this directly."], INTERPRETATION: ["Our reading", "A reasonable reading that goes beyond the exact words."], CONCERN: ["Worth asking about", "Something missing, vague or one-sided."] };
+const FLAG = { ambiguous: "Vague wording", jurisdiction_dependent: "Rules differ by state", conflicting: "Conflicts with another clause", needs_professional: "Best checked by a professional" };
+const EXPECTED = [["obligation", "Your obligations"], ["right", "Your rights"], ["deadline", "Deadlines"], ["penalty", "Penalties"], ["termination", "How it can end"]];
+const NOT_LEGAL = "The full agreement and the list on the “For your lawyer” tab.";
+
+/* ---------- state ---------- */
+const S = { mode: "demo", status: "ready", file: null, error: null, elapsed: 0, asking: false };
+let DOC = SAMPLE_DOC, ANALYSIS = SAMPLE_ANALYSIS, thread = SAMPLE_THREAD.slice();
+let showUnv = false, pollTimer = null;
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const passage = id => DOC.passages.find(p => p.id === id);
+const headOf = p => p.heading || ("Clause " + p.id);
+const firstSentence = t => { const s = String(t || "").trim(); const m = s.match(/^.*?[.!?](\s|$)/); const x = (m ? m[0] : s).trim(); return x.length > 110 ? x.slice(0, 107).trimEnd() + "…" : x; };
+const gistOf = f => f.gist || firstSentence(f.plain_text);
+const cites = s => esc(s).replace(/\[(p\d+\.c\d+)\]/g, (_, id) => passage(id) ? `<button class="cite" type="button" data-pid="${id}" aria-label="Show source ${id}">${id}</button>` : `[${id}]`);
+const mark = (t, q) => { const i = String(t).toLowerCase().indexOf(String(q).toLowerCase()); return (i < 0 || !q) ? esc(t) : esc(t.slice(0, i)) + "<mark>" + esc(t.slice(i, i + q.length)) + "</mark>" + esc(t.slice(i + q.length)); };
+const verified = f => !(f.flags || []).includes("unverified");
+const flagsOf = f => f.flags || [];
+function score(f) { return (KIND_W[f.kind] ?? 1) + (f.label === "CONCERN" || flagsOf(f).some(x => x === "ambiguous" || x === "jurisdiction_dependent" || x === "conflicting") ? 1 : 0) + (f.escalation_note ? 1 : 0); }
+const tierOf = f => score(f) >= 5 ? "attn" : score(f) >= 3 ? "check" : "std";
+const ordered = list => list.slice().sort((a, b) => score(b) - score(a));
+const isInjectWarning = w => /looks like an instruction/i.test(w);
+
+function lawyerItems() {
+  const items = ordered(ANALYSIS.findings.filter(f => verified(f) && f.escalation_note)).map(f => {
+    const p = passage(f.passage_id) || { id: f.passage_id, heading: null, page: "?" };
+    return { clause: `${p.id} · ${headOf(p)}`, ask: f.escalation_note, bring: `Page ${p.page} of the agreement.` };
+  });
+  thread.forEach(r => {
+    if (r.error || r.pending) return;
+    if (r.esc) items.push({ clause: r.esc.clause, ask: `You asked “${r.q}”. ${r.esc.ask.join(" ")}`, bring: r.esc.bring });   // demo thread shape
+    else if (r.refused && r.escalation_note) items.push({ clause: "Your question", ask: `You asked “${r.q}”. ${r.text}`, bring: NOT_LEGAL });
+    else if (!r.refused && r.escalation_note) {
+      const c = (r.citations || [])[0], p = c && passage(c.passage_id);
+      items.push({ clause: p ? `${p.id} · ${headOf(p)}` : "Your question", ask: `You asked “${r.q}”. ${r.escalation_note}`, bring: NOT_LEGAL });
+    }
+  });
+  return items;
+}
+
+/* ---------- panels ---------- */
+function renderOverview() {
+  const vf = ANALYSIS.findings.filter(verified);
+  const counts = { attn: 0, check: 0, std: 0 }; vf.forEach(f => counts[tierOf(f)]++);
+  const cov = ANALYSIS.coverage || {};
+  const found = new Set(cov.found || vf.map(f => f.kind));
+  const gaps = new Set(cov.not_found || EXPECTED.map(e => e[0]).filter(k => !found.has(k)));
+  const top = lawyerItems().slice(0, 3);
+  const incomplete = cov.incomplete ? `<div class="box warnbox" role="status"><h3>Part of this document was not analysed</h3><p style="margin:6px 0 0">The results below are incomplete${(cov.not_analysed || []).length ? `: ${cov.not_analysed.length} clause${cov.not_analysed.length === 1 ? "" : "s"} could not be read by the model` : ""}. Read the original for anything missing.</p></div>` : "";
+  $("overview").innerHTML = `${incomplete}
+    <div class="box next">${top.length
+      ? `<h2>Before you sign: ${top.length} thing${top.length === 1 ? "" : "s"} to ask</h2><ol>${top.map(i => `<li>${esc(i.ask)} <span class="mono">${esc(i.clause.split(" · ")[0])}</span></li>`).join("")}</ol>
+         <button class="btn primary" type="button" data-go="lawyer">See the full list for your lawyer</button>`
+      : `<h2>Nothing flagged for a lawyer</h2><p class="lede">No finding asked for professional input. Read the findings anyway, and ask a lawyer if anything is unclear.</p>
+         <p style="margin:12px 0 0"><button class="btn" type="button" data-go="findings">Review all findings</button></p>`}</div>
+    <div><h2>Summary</h2><p class="summary">${cites(ANALYSIS.summary)}</p>
+      <p class="note">Each sentence is checked against the clause it cites. Select a clause number to read the exact text.</p></div>
+    <div class="facts">
+      <div class="box"><h3>What we found</h3><ul class="tally">${Object.keys(counts).map(t => `<li><span class="tier ${t}">${TIER[t][0]}</span><span class="num">${counts[t]}</span></li>`).join("")}</ul>
+        <p class="note" style="margin-top:10px"><button class="btn" type="button" data-go="findings">Review all findings</button></p></div>
+      <div class="box"><h3>What the document covers</h3><ul class="cov">${EXPECTED.map(([k, n]) => gaps.has(k) || !found.has(k)
+        ? `<li><span class="no" aria-hidden="true">✗</span>${n}: not found<span class="sr"> in this document</span></li>`
+        : `<li><span class="yes" aria-hidden="true">✓</span>${n}</li>`).join("")}</ul></div>
+    </div>`;
+}
+
+function findingHTML(f) {
+  const p = passage(f.passage_id) || { id: f.passage_id, page: "?", heading: null, text: f.quote };
+  const ok = verified(f), [lt, ld] = LABEL[f.label] || ["From the document", ""];
+  const reason = f.reason || (ok ? "" : "This finding could not be checked against the document, so it is hidden by default.");
+  return `<details class="finding" id="${esc(f.id)}"><summary><span class="head">${esc(headOf(p))}</span><span class="gist">${esc(gistOf(f))}</span><span class="chev" aria-hidden="true">▾</span></summary>
+    <div class="fbody">
+      <div><span class="kicker">What it means</span><p style="margin:0">${esc(f.plain_text)}</p>
+        <span class="label"><b>${esc(lt)}.</b> ${esc(ld)}${flagsOf(f).filter(x => FLAG[x]).map(x => ` · <b>${FLAG[x]}</b>`).join("")}</span>
+        ${f.party ? `<span class="note">Applies to: ${esc(f.party)}</span>` : ""}
+        ${f.escalation_note ? `<div class="esc">${esc(f.escalation_note)}</div>` : ""}
+        ${reason ? `<div class="esc bad">${esc(reason)}</div>` : ""}</div>
+      <div class="src"><span class="kicker">Exact text · ${esc(p.id)} · page ${esc(p.page)}</span><p class="srctext">${mark(p.text, f.quote)}</p>
+        <span class="${ok ? "ok" : "fail"}">${ok ? "✓ Quote matches the document" : "✗ Could not be matched to the document"}</span></div>
+    </div></details>`;
+}
+function renderFindings() {
+  const shown = ordered(ANALYSIS.findings.filter(f => showUnv || verified(f)));
+  const hidden = ANALYSIS.findings.length - ANALYSIS.findings.filter(verified).length;
+  $("findings").innerHTML = `<div><h2>Findings</h2><p class="lede">Most important first. Open a finding to see the exact text it comes from.</p></div>
+    ${shown.length ? "" : `<div class="box"><p style="margin:0">No findings passed the accuracy check for this document.</p></div>`}
+    ${["attn", "check", "std"].map(t => { const g = shown.filter(f => tierOf(f) === t); return g.length ? `<section class="group" aria-labelledby="g-${t}"><h3 id="g-${t}"><span class="tier ${t}">${TIER[t][0]}</span><span class="sub">${TIER[t][1]}</span></h3>${g.map(findingHTML).join("")}</section>` : ""; }).join("")}
+    ${hidden ? `<label class="unvrow"><input type="checkbox" id="unvBox" ${showUnv ? "checked" : ""}> Show ${hidden} finding${hidden === 1 ? "" : "s"} that failed our accuracy check</label>` : ""}`;
+  $("nFind").textContent = ANALYSIS.findings.filter(verified).length;
+}
+
+function replyHTML(r) {
+  if (r.pending) return `<div class="reply" role="status"><span class="tag">Reading the document</span><p>Looking for the clauses that answer this. On a laptop CPU this can take a minute.</p></div>`;
+  if (r.error) return `<div class="reply err" role="alert"><span class="tag">Could not answer</span><p>${esc(r.error)}</p></div>`;
+  if (r.refused) {
+    if (r.esc) return `<div class="reply refused"><span class="tag">Needs a professional</span><p>${esc(r.text)}</p><p><b>Ask a lawyer about ${esc(r.esc.clause)}:</b></p><ul>${r.esc.ask.map(a => `<li>${esc(a)}</li>`).join("")}</ul><p><b>Bring:</b> ${esc(r.esc.bring)}</p></div>`;
+    return `<div class="reply refused"><span class="tag">Needs a professional</span><p>${esc(r.text)}</p></div>`;
+  }
+  if (r.silent) return `<div class="reply silent"><span class="tag">Not in the document</span><p>${esc(r.text)}</p></div>`;
+  return `<div class="reply cited"><span class="tag">From the document</span><p>${cites(r.text)}</p>${(r.citations || []).map(c => `<blockquote>“${esc(c.quote)}” <span class="note">${esc(c.passage_id)}</span></blockquote>`).join("")}${r.escalation_note ? `<div class="esc">${esc(r.escalation_note)}</div>` : ""}</div>`;
+}
+function renderAsk() {
+  const keep = $("askInput") ? $("askInput").value : "";
+  $("ask").innerHTML = `<div><h2>Ask about this document</h2><p class="lede">Answers come only from this document and show the text they rely on. If it doesn't say, LegalLens tells you.</p></div>
+    <ol class="thread" aria-live="polite">${thread.map(r => `<li><div class="you"><span>You asked:</span> ${esc(r.q)}</div>${replyHTML(r)}</li>`).join("")}</ol>
+    <form class="ask" id="askForm"><label for="askInput">Your question</label>
+      <div class="askrow"><input id="askInput" autocomplete="off" maxlength="2000" placeholder="For example: what is the notice period?" ${S.asking ? "disabled" : ""}><button class="btn primary" type="submit" ${S.asking ? "disabled" : ""}>Ask</button></div>
+      <div class="chips" aria-label="Suggested questions">${["What is the notice period?", "Who pays for repairs?", "Should I sign this?", "Is subletting allowed?"].map(s => `<button type="button" data-q="${esc(s)}" ${S.asking ? "disabled" : ""}>${esc(s)}</button>`).join("")}</div></form>`;
+  if (keep && !S.asking) $("askInput").value = keep;
+}
+
+// Canned router, demo mode only. In live mode every question goes to the real pipeline, and verdict questions are refused in code before the model runs.
+function cannedReply(q) {
+  const s = q.toLowerCase();
+  if (/(enforceable|legal|valid|should i sign|can they)/.test(s)) return { q, refused: true, text: "LegalLens can't tell you whether to sign or whether a clause is legal. That depends on where you live and your circumstances.", esc: { clause: "the whole agreement", ask: ["Which clauses would you change before I sign?", "Are the deposit and late fee normal where I live?"], bring: NOT_LEGAL } };
+  if (/notice|terminate|leave|end/.test(s)) return { q, text: "Either party may end the agreement with 60 days' written notice [p2.c2].", citations: [{ passage_id: "p2.c2", quote: "giving 60 days written notice to the other party" }] };
+  if (/repair|mainten/.test(s)) return { q, text: "The Landlord handles major structural repairs and the Tenant handles minor day-to-day maintenance [p3.c1]. The document does not define “minor”.", citations: [{ passage_id: "p3.c1", quote: "The Tenant shall handle minor day-to-day maintenance." }] };
+  return { q, silent: true, text: "The document does not appear to say anything about this. You may want to ask the other party directly, or consult a qualified legal professional." };
+}
+async function addQuestion(q) {
+  q = q.trim(); if (!q || S.asking) return;
+  if (S.mode === "demo") { thread.push(cannedReply(q)); renderAsk(); renderLawyer(); renderOverview(); $("askInput").focus(); return; }
+  S.asking = true; thread.push({ q, pending: true }); renderAsk();
+  const r = await api("/api/ask", { method: "POST", headers: { "X-LegalLens": "1", "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) });
+  thread.pop(); S.asking = false;
+  thread.push(r.ok && r.json ? r.json : { q, error: (r.json && r.json.error && r.json.error.message) || "The local model did not answer. Check that it is running, then try again." });
+  renderAsk(); renderLawyer(); renderOverview(); $("askInput").focus();
+}
+
+function renderLawyer() {
+  const items = lawyerItems(); $("nLaw").textContent = items.length;
+  $("lawyer").innerHTML = `<div><h2>For your lawyer</h2><p class="lede">LegalLens can't judge these points. Take this list to a lawyer or a tenant help centre. Each item names the clause to point to.</p></div>
+    ${items.length ? `<ol class="law">${items.map(i => `<li><span class="clause">${esc(i.clause)}</span>${esc(i.ask)}<span class="bring">Bring: ${esc(i.bring)}</span></li>`).join("")}</ol>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="btn primary" type="button" id="copyList">Copy list</button><span id="copyMsg" role="status" class="note"></span></div>`
+    : `<div class="box"><p style="margin:0">Nothing has been flagged yet. Questions LegalLens can't answer will be added here.</p></div>`}`;
+  const btn = $("copyList"); if (!btn) return;
+  btn.addEventListener("click", () => {
+    const txt = items.map((i, n) => `${n + 1}. [${i.clause}] ${i.ask} Bring: ${i.bring}`).join("\n");
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => $("copyMsg").textContent = "Copied to clipboard.", () => $("copyMsg").textContent = "Copying is blocked here. Select the list and copy it.");
+  });
+}
+
+/* ---------- tabs ---------- */
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+function select(name, focus) {
+  tabs.forEach(t => { const on = t.getAttribute("aria-controls") === name; t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus(); });
+  document.querySelectorAll('[role="tabpanel"]').forEach(p => p.hidden = p.id !== name);
+}
+const currentTab = () => tabs.find(t => t.getAttribute("aria-selected") === "true").getAttribute("aria-controls");
+tabs.forEach((t, i) => t.addEventListener("keydown", e => {
+  const k = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (k !== undefined) { e.preventDefault(); select(tabs[(k + tabs.length) % tabs.length].getAttribute("aria-controls"), true); }
+}));
+
+/* ---------- screens ---------- */
+const STEPS = ["Reading the file", "Splitting it into clauses", "Finding obligations, penalties and deadlines", "Checking every quote against the document", "Writing the summary"];
+const mins = s => s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
+function stateHTML() {
+  const f = esc(S.file || "the document");
+  if (S.status === "empty") return `<div class="box state"><h2>Open a rental or employment agreement</h2><p class="lede">LegalLens reads it on this computer, explains it in plain language and shows the exact text behind every point.</p>
+    <div class="drop" id="dropZone" style="margin-top:16px"><button class="btn primary" type="button" data-open="1">Choose a file</button><span class="note">or drag a PDF or .txt file here · English · one file at a time</span></div></div>`;
+  if (S.status === "busy") return `<div class="box state" role="status"><h2>Reading ${f}</h2><p class="lede">This takes about 2–4 minutes on a laptop. Nothing leaves this computer.${S.mode === "live" ? ` Running for ${mins(S.elapsed)}.` : ""}</p>
+    ${S.mode === "demo" ? `<ol class="steps">${STEPS.map((t, i) => `<li class="${i < 3 ? "done" : i === 3 ? "now" : "todo"}">${t}</li>`).join("")}</ol>`
+      : `<p class="note" style="margin-top:12px">In order: ${STEPS.map(esc).join(" → ")}.</p>`}</div>`;
+  if (S.status === "error") {
+    const e = S.error || {}, titles = { unreadable: "LegalLens can't read this file", model: "The local model isn't reachable", failed: "This document couldn't be analysed" };
+    const hint = e.kind === "model" ? " Start llama-server first (see docs/MODEL_SETUP.md), then open the document again." : "";
+    return `<div class="box state alert" role="alert"><h2>${esc(titles[e.kind] || "Something went wrong")}</h2><p class="lede">${esc(e.message || "Unknown error.")}${esc(hint)}</p>
+    <p style="margin:14px 0 0"><button class="btn primary" type="button" data-open="1">Choose another file</button></p></div>`;
+  }
+  const notes = (DOC.warnings || []);
+  const inject = notes.filter(isInjectWarning), other = notes.filter(w => !isInjectWarning(w));
+  return (inject.length ? `<div class="box warnbox" role="status" style="margin-bottom:24px"><h3>This document contains text that looks like an instruction to an AI</h3><p style="margin:6px 0 0">It was ignored, and the analysis below is unaffected. Treat the document with care and read it yourself.</p></div>` : "")
+    + (other.length ? `<div class="box warnbox" role="status" style="margin-bottom:24px"><h3>Notes about this file</h3><ul style="margin:6px 0 0;padding-left:20px">${other.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : "");
+}
+function render() {
+  const s = S.status, ready = s === "ready";
+  $("stateArea").innerHTML = stateHTML();
+  document.querySelector("nav.tabs").hidden = !ready;
+  $("fileLine").innerHTML = s === "empty" || s === "idle" ? "No document open" : `Reading <b>${esc(ready ? DOC.source_name : (S.file || "document"))}</b>`;
+  $("modelStatus").textContent = S.mode === "live" ? "Running on this computer" : "Model ready on this computer";
+  $("demoRow").hidden = S.mode !== "demo";
+  $("openBtn").disabled = s === "busy";
+  if (!ready) { document.querySelectorAll('[role="tabpanel"]').forEach(p => p.hidden = true); return; }
+  renderOverview(); renderFindings(); renderAsk(); renderLawyer();
+  select(currentTab(), false);
+}
+
+/* ---------- live mode ---------- */
+async function api(path, opts) {
+  try {
+    const r = await fetch(path, { cache: "no-store", ...opts });
+    let json = null; try { json = await r.json(); } catch (_) { /* non-JSON body */ }
+    return { ok: r.ok, status: r.status, json };
+  } catch (_) { return { ok: false, status: 0, json: null }; }
+}
+function applyState(st) {
+  S.status = st.status === "idle" ? "empty" : st.status;
+  S.file = st.file; S.error = st.error; S.elapsed = st.elapsed || 0;
+  if (st.status === "ready") { DOC = st.doc; ANALYSIS = st.analysis; thread = st.thread || []; showUnv = false; }
+  render();
+}
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    const r = await api("/api/state");
+    if (!r.ok) { stopPolling(); S.status = "error"; S.error = { kind: "failed", message: "Lost contact with the local LegalLens server. Restart it and reload this page." }; render(); return; }
+    applyState(r.json); if (r.json.status !== "busy") stopPolling();
+  }, 1500);
+}
+async function upload(file) {
+  if (!file || S.mode !== "live") return;
+  S.status = "busy"; S.file = file.name; S.error = null; S.elapsed = 0; render();
+  const r = await api("/api/analyze", { method: "POST", headers: { "X-LegalLens": "1", "X-Filename": encodeURIComponent(file.name) }, body: file });
+  if (!r.ok && r.status !== 409) { S.status = "error"; S.error = { kind: "failed", message: (r.json && r.json.error && r.json.error.message) || "Could not send the file to the local server." }; render(); return; }
+  startPolling();
+}
+async function clearSession() {
+  if (S.mode === "live") { stopPolling(); await api("/api/clear", { method: "POST", headers: { "X-LegalLens": "1" } }); S.status = "empty"; S.file = null; S.error = null; DOC = { source_name: "", pages: 0, passages: [], warnings: [] }; ANALYSIS = { summary: "", findings: [], coverage: {} }; thread = []; render(); }
+  $("clearMsg").textContent = "Session data cleared.";
+}
+
+/* ---------- demo-only state switcher ---------- */
+function setDemoState(s) {
+  S.error = null; S.file = "rental_clear.txt"; DOC = Object.assign({}, SAMPLE_DOC, { warnings: [] });
+  if (s === "empty") S.status = "empty";
+  else if (s === "busy") S.status = "busy";
+  else if (s === "error") { S.status = "error"; S.error = { kind: "unreadable", message: "This PDF looks like a scanned image: it has no text LegalLens can read. Export the original as text, or open a .txt copy. LegalLens doesn't guess at scanned pages." }; }
+  else { S.status = "ready"; if (s === "inject") DOC.warnings = [INJECT_WARNING]; }
+  render();
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", e => {
+  const t = e.target;
+  const tab = t.closest('[role="tab"]'); if (tab) { select(tab.getAttribute("aria-controls"), false); return; }
+  const c = t.closest(".cite"); if (c) { const p = passage(c.dataset.pid); if (!p) return; $("dlgTitle").textContent = `${headOf(p)} · ${p.id} · page ${p.page}`; $("dlgBody").innerHTML = `<p class="srctext">${esc(p.text)}</p><p class="note">Exact text from ${esc(DOC.source_name)}.</p>`; $("srcDialog").showModal(); return; }
+  const g = t.closest("[data-go]"); if (g) { select(g.dataset.go, true); window.scrollTo(0, 0); return; }
+  if (t.closest("[data-open]")) { openChooser(); return; }
+  const q = t.closest("[data-q]"); if (q) addQuestion(q.dataset.q);
+});
+document.addEventListener("change", e => { if (e.target.id === "unvBox") { showUnv = e.target.checked; renderFindings(); $("unvBox").focus(); } });
+document.addEventListener("submit", e => { if (e.target.id === "askForm") { e.preventDefault(); addQuestion($("askInput").value); } });
+document.addEventListener("dragover", e => { if (e.target.closest && e.target.closest("#dropZone")) e.preventDefault(); });
+document.addEventListener("drop", e => { const z = e.target.closest && e.target.closest("#dropZone"); if (!z) return; e.preventDefault(); upload(e.dataTransfer.files[0]); });
+function openChooser() {
+  if (S.mode === "live") { $("fileInput").click(); return; }
+  $("stateSel").value = "empty"; setDemoState("empty");      // demo: show the first-run screen
+}
+$("fileInput").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; upload(f); });
+$("dlgClose").addEventListener("click", () => $("srcDialog").close());
+$("stateSel").addEventListener("change", e => setDemoState(e.target.value));
+$("openBtn").addEventListener("click", openChooser);
+$("clearBtn").addEventListener("click", clearSession);
+
+/* ---------- start ---------- */
+(async function init() {
+  const r = location.protocol === "file:" ? { ok: false } : await api("/api/state");
+  if (r.ok && r.json && "status" in r.json) { S.mode = "live"; thread = []; applyState(r.json); if (r.json.status === "busy") startPolling(); }
+  else { S.mode = "demo"; S.status = "ready"; render(); }
+})();
+</script>
