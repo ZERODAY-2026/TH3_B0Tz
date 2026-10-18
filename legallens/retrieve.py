@@ -182,6 +182,9 @@ class _Index:
             for r, i in enumerate(ranking):
                 fused[i] = fused.get(i, 0.0) + 1.0 / (RRF_K + r + 1)
         order = sorted(fused, key=lambda i: (-fused[i], i))[:k]
+        # BM25-only with few matching clauses: fill up to k in document order so
+        # the model still sees context; their relevance of 0 says they didn't match.
+        order += [i for i in range(n) if i not in fused][: k - len(order)]
         # Reported score is a relevance in [0, 1]: cosine similarity when the
         # dense model is loaded, otherwise BM25 relative to the best match.
         return [(self.passages[i], round(max(dense[i], 0.0) if dense else bm[i] / top_bm, 4))

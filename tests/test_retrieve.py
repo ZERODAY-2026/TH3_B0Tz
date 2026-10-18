@@ -75,6 +75,14 @@ def test_bm25_fallback_still_finds_exact_terms(bm25_only):
     assert r[0][1] == 1.0                      # BM25 relative to the best match
 
 
+def test_bm25_fallback_always_returns_k(bm25_only):
+    r = R.retrieve(RENTAL, "What is the late fee?", k=3)
+    assert len(r) == 3 and "2.3" in r[0][0].text
+    assert [s for _, s in r][1:] <= [r[0][1]] * 2
+    none = R.retrieve(RENTAL, "zebra quantum", k=3)          # nothing matches at all
+    assert len(none) == 3 and all(s == 0.0 for _, s in none)
+
+
 def test_bm25_fallback_is_deterministic(bm25_only):
     a = [p.id for p, _ in R.retrieve(RENTAL, "deposit refund", k=5)]
     R.clear_cache()
