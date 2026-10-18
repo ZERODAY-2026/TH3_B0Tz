@@ -1,0 +1,45 @@
+# Real Gemma run on an ingested PDF (2026-10-18)
+# Command: GEMMA_TIMEOUT=900 python smoke.py --file data/samples/rental_clear.pdf
+# Model: gemma-4-E4B-it Q4_K_M via llama.cpp b11680 (CPU backend, thinking off), 127.0.0.1:8080
+# Hardware: laptop CPU, 12 threads; generation ~5.2 tok/s, prompt ~38 tok/s
+
+=== ingest(rental_clear.pdf): 17 passages ===
+
+=== analyze(): 265s ===
+summary: The Tenant must pay a security deposit of Rs. 45,000 when the agreement is signed [p1.c7]. Monthly rent of Rs. 15,000 is due on or before the 5th day of each month [p1.c4]. If rent is late by more than 5 days, a late fee of Rs. 500 per day applies [p1.c6]. The agreement can end if either party gives 60 days written notice [p2.c5].
+
+[deadline/STATED/ok] The monthly rent must be paid on or before the 5th day of each month.
+    quote: "The monthly rent shall be Rs. 15,000 (Rupees Fifteen Thousand only), payable on "  (p1.c4)
+[penalty/STATED/ok] If rent is not paid within 5 days of the due date, the Tenant must pay a late fee of Rs. 500 per day until payment is received.
+    quote: "If rent is not paid within 5 days of the due date, the Tenant shall pay a late f"  (p1.c6)
+[obligation/STATED/ok] The Tenant must pay a security deposit of Rs. 45,000 at the time the agreement is signed.
+    quote: "The Tenant shall pay a security deposit of Rs. 45,000 (Rupees Forty-Five Thousan"  (p1.c7)
+[obligation/STATED/ok] The Landlord is responsible for major structural repairs.
+    quote: "The Landlord shall be responsible for major structural repairs."  (p1.c9)
+[obligation/STATED/ok] The Tenant must handle minor day-to-day maintenance.
+    quote: "The Tenant shall handle minor day-to-day maintenance."  (p2.c1)
+[obligation/STATED/ok] The Tenant cannot make any changes to the Premises without getting prior written permission from the Landlord.
+    quote: "The Tenant shall not make any alteration to the Premises without the prior writt"  (p2.c2)
+[obligation/STATED/ok] The Premises can only be used for living purposes.
+    quote: "The Premises shall be used only for residential purposes."  (p2.c3)
+[obligation/STATED/ok] The Tenant cannot rent out the Premises or any part of it to others.
+    quote: "The Tenant shall not sublet the Premises or any part of it."  (p2.c4)
+[termination/STATED/ok] Either party can end this agreement by providing 60 days written notice to the other party.
+    quote: "Either party may terminate this agreement by giving 60 days written notice to th"  (p2.c5)
+[penalty/STATED/ok] If the Tenant moves out within the first 6 months, the Tenant will lose one month's rent from the security deposit.
+    quote: "If the Tenant leaves within the first 6 months, the Tenant shall forfeit one mon"  (p2.c6)
+[ambiguity/CONCERN/ok] The Landlord can deduct amounts from the security deposit that the Landlord considers reasonable after the Tenant moves out.
+    quote: "The deposit shall be refunded after the Tenant vacates, after deducting any amou"  (p1.c8)
+coverage: {'found': ['deadline', 'obligation', 'penalty', 'termination'], 'not_found': ['right'], 'additional': ['ambiguity']}
+
+=== ask('What is the notice period?'): 26s  silent=False refused=False
+text: Either party may terminate this agreement by giving 60 days written notice to the other party.
+citations: [('p2.c5', 'Either party may terminate this agreement by givin')]
+
+=== ask('Can I keep a pet?'): 20s  silent=True refused=False
+text: The document does not appear to say anything about this.
+citations: []
+
+=== ask('Is the late fee enforceable?'): 0s  silent=False refused=True
+text: I cannot determine that. This depends on your jurisdiction and specific circumstances. Consider asking a qualified legal professional about late fee, and bring the exact clause text with you.
+citations: []
