@@ -1,0 +1,16 @@
+﻿{
+    "started":  "2026-10-18 17.43.31",
+    "duration_s":  159.7,
+    "poll_interval_ms":  200,
+    "samples":  86,
+    "watched":  [
+                    "python (LegalLens) pid 17536",
+                    "llama-server pid 11400"
+                ],
+    "endpoints_seen":  13,
+    "non_loopback":  [
+
+                     ],
+    "capture_exit_code":  0,
+    "verdict":  "PASS"
+}

@@ -1,0 +1,161 @@
+"""Layer 3 of the privacy proof: find every piece of code that *could* talk
+to the network, in our code and in every installed runtime dependency.
+
+    python privacy/audit_deps.py --out docs/examples/privacy/dependency_audit.md
+
+It resolves the runtime dependency tree from requirements.txt (dev-only
+packages excluded), searches each package's Python source for network
+clients, DNS, raw sockets and telemetry/update-check code, lists compiled
+modules it cannot read as text, and records which network-capable modules
+the app actually imports at run time. Every hit is reviewed by a person and
+the verdict goes in privacy/THREAT_MODEL.md; this script only finds them.
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.metadata as md
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+DEV_ONLY = {"pytest", "pymupdf"}
+
+NET_IMPORT = re.compile(r"^\s*(?:import|from)\s+(requests|httpx|aiohttp|urllib3|websockets?|socket|ssl|"
+                        r"ftplib|smtplib|poplib|imaplib|telnetlib|http\.client|urllib\.request|"
+                        r"xmlrpc\.client|asyncio\.streams)\b")
+NET_CALL = re.compile(r"\b(urlopen|create_connection|socket\.socket|getaddrinfo|gethostbyname|"
+                      r"requests\.(?:get|post|put|request)|httpx\.(?:get|post|Client)|HTTPSConnection|HTTPConnection)\b")
+TELEMETRY = re.compile(r"\b(telemetry|analytics|posthog|sentry_sdk|mixpanel|amplitude|opentelemetry|"
+                       r"check_for_updates?|update_check|phone_home)\b", re.I)
+NETWORK_MODULES = ["socket", "ssl", "http.client", "urllib.request", "urllib3", "requests", "httpx", "aiohttp"]
+
+
+def _requirement_parser():
+    try:
+        from packaging.requirements import Requirement
+    except ImportError:                                  # pip always vendors it
+        from pip._vendor.packaging.requirements import Requirement
+    return Requirement
+
+
+def runtime_roots() -> list[str]:
+    names = []
+    for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            name = re.split(r"[<>=!~;\[ ]", line, maxsplit=1)[0]
+            if name.lower() not in DEV_ONLY:
+                names.append(name)
+    return names
+
+
+def closure(roots: list[str]) -> list[md.Distribution]:
+    Requirement = _requirement_parser()
+    seen: dict[str, md.Distribution] = {}
+    todo = list(roots)
+    while todo:
+        name = todo.pop()
+        try:
+            dist = md.distribution(name)
+        except md.PackageNotFoundError:
+            continue
+        key = dist.metadata["Name"].lower()
+        if key in seen:
+            continue
+        seen[key] = dist
+        for req in dist.requires or []:
+            r = Requirement(req)
+            if r.marker is None or r.marker.evaluate({"extra": ""}):
+                todo.append(r.name)
+    return sorted(seen.values(), key=lambda d: d.metadata["Name"].lower())
+
+
+def scan_file(path: Path) -> list[tuple[int, str, str]]:
+    hits = []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return hits
+    for n, line in enumerate(lines, start=1):
+        for kind, rx in (("import", NET_IMPORT), ("call", NET_CALL), ("telemetry", TELEMETRY)):
+            if rx.search(line):
+                hits.append((n, kind, line.strip()[:110]))
+                break
+    return hits
+
+
+def scan_dist(dist: md.Distribution) -> dict:
+    py, binaries, hits = 0, [], []
+    for f in dist.files or []:
+        p = Path(dist.locate_file(f))
+        if p.suffix == ".py":
+            py += 1
+            hits += [(f"{f}:{n}", kind, text) for n, kind, text in scan_file(p)]
+        elif p.suffix in (".pyd", ".so", ".dll", ".dylib"):
+            binaries.append(str(f))
+    return {"name": dist.metadata["Name"], "version": dist.version, "py_files": py,
+            "binaries": binaries, "hits": hits}
+
+
+def scan_own_code() -> dict:
+    hits, files = [], sorted((ROOT / "legallens").rglob("*.py"))
+    for p in files:
+        hits += [(f"{p.relative_to(ROOT).as_posix()}:{n}", kind, text) for n, kind, text in scan_file(p)]
+    return {"name": "legallens (our code)", "version": "-", "py_files": len(files), "binaries": [], "hits": hits}
+
+
+def runtime_imports() -> list[str]:
+    """Network-capable modules actually loaded once the app's modules are imported."""
+    code = ("import sys, legallens.ingest, legallens.analyze, legallens.verify, legallens.safety, "
+            "legallens.injection, legallens.llm; "
+            f"print(','.join(m for m in {NETWORK_MODULES!r} if m in sys.modules))")
+    res = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
+    return [m for m in res.stdout.strip().split(",") if m]
+
+
+def render(own: dict, deps: list[dict], loaded: list[str]) -> str:
+    out = ["# Dependency network audit", "",
+           f"Generated by `privacy/audit_deps.py` with Python {sys.version.split()[0]} on {sys.platform}.",
+           "Each hit is reviewed in `privacy/THREAT_MODEL.md`. A hit means the code *could* use the",
+           "network, not that it does; the monitored and offline runs show what actually happens.", "",
+           "## Summary", "", "| Package | Version | .py files | Network/telemetry hits | Compiled modules |",
+           "|---|---|---|---|---|"]
+    for d in [own] + deps:
+        out.append(f"| {d['name']} | {d['version']} | {d['py_files']} | {len(d['hits'])} | {len(d['binaries'])} |")
+    out += ["", "## Network-capable modules loaded by the app at run time", "",
+            ", ".join(f"`{m}`" for m in loaded) if loaded else "None.", ""]
+    for d in [own] + deps:
+        if not d["hits"] and not d["binaries"]:
+            continue
+        out += [f"## {d['name']} {d['version']}", ""]
+        if d["hits"]:
+            out += ["| Where | Kind | Line |", "|---|---|---|"]
+            for where, kind, text in d["hits"][:25]:
+                out.append(f"| `{where}` | {kind} | `{text.replace('|', '\\|')}` |")
+            if len(d["hits"]) > 25:
+                out.append(f"| … | | {len(d['hits']) - 25} more |")
+            out.append("")
+        if d["binaries"]:
+            out += [f"Compiled modules (not text-scanned): {', '.join(f'`{b}`' for b in d['binaries'][:8])}"
+                    + (" …" if len(d["binaries"]) > 8 else ""), ""]
+    return "\n".join(out)
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="Audit LegalLens and its runtime dependencies for network code.")
+    ap.add_argument("--out", help="write the markdown report here")
+    args = ap.parse_args(argv)
+    deps = [scan_dist(d) for d in closure(runtime_roots())]
+    report = render(scan_own_code(), deps, runtime_imports())
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(report + "\n", encoding="utf-8")
+    total = sum(len(d["hits"]) for d in deps)
+    print(f"audited {len(deps)} runtime dependencies + our code: {total} dependency hit(s) to review")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

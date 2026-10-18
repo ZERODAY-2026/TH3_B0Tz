@@ -1,0 +1,40 @@
+{
+  "when": "2026-10-18 17:46:10 +0530",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.13",
+  "document": "data/samples/privacy_canary.txt",
+  "canary": "QZX-CANARY-41907",
+  "guard_mode": "block",
+  "timings": {
+    "ingest_s": 0.0,
+    "analyze_s": 132.2,
+    "ask: What is the notice period?": 14.8,
+    "ask: Can I keep a pet?": 7.6,
+    "ask: Is the late fee enforceable?": 0.0
+  },
+  "findings": 4,
+  "network": {
+    "mode": "block",
+    "events_total": 12,
+    "loopback_events": 12,
+    "non_loopback_events": 0,
+    "non_loopback": [],
+    "distinct_targets": [
+      "127.0.0.1:8080",
+      "dns:127.0.0.1",
+      "http://127.0.0.1:8080/v1/chat/completions"
+    ]
+  },
+  "files_changed_during_run": 7,
+  "files_changed_sample": [
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\269acc1a-554d-4fdf-a9b9-d049be91161b.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\3fd088d8-7f1d-455f-91bd-0e71eefcde7a.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\639309e9-8ee1-47df-8584-efe2ee069dc9.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\c0d004e4-d9eb-4753-9cca-c987bc0422e4.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\cea6af59-4ada-4fbe-9e4e-11885d05d33c.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\cache-break-state-0ae8947d-414e-4c3f-943c-7d5f56946282.json",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\f34bcd65-6332-4872-ae54-acc9cfb4be11.tmp"
+  ],
+  "canary_found_outside_output_dir": [],
+  "verdict": "PASS"
+}
