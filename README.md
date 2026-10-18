@@ -163,8 +163,9 @@ pytest tests/ -q        # deterministic unit + contract tests (no model needed)
 python bench/run.py     # eval: citation accuracy, verifier rate, silence/refusal (lane D)
 ```
 
-Current state: **20 tests passing** — JSON client handling, retry loop, analysis
-shapes, injection containment, verdict refusal, silent path, type contracts.
+Current state: **110 tests passing** — LLM client, analysis pipeline, grounding
+verifier, safety layer, injection defence and ingestion (clause chunking,
+header/footer stripping, malformed files).
 
 ## Troubleshooting
 
@@ -190,7 +191,7 @@ shapes, injection containment, verdict refusal, silent path, type contracts.
 │   ├── llm.py                  # local Gemma client, JSON mode, retries
 │   ├── analyze.py              # analyze(), ask(), chunking, summary
 │   ├── prompts/                # extract / explain / summarize / qa
-│   ├── ingest.py               # (B) parsing, chunking, passage IDs      [pending]
+│   ├── ingest.py               # (B) parsing, chunking, passage IDs      [landed]
 │   ├── retrieve.py             # (B) BM25 + embeddings + local store     [pending]
 │   ├── verify.py               # (C) quote/number verifier               [landed]
 │   ├── safety.py               # (C) labels, refusal, escalation         [landed]
@@ -199,7 +200,7 @@ shapes, injection containment, verdict refusal, silent path, type contracts.
 ├── app/                        # (D) UI, 127.0.0.1 only                  [pending]
 ├── bench/                      # (D) eval + speed/memory scripts         [pending]
 ├── tests/                      # unit + contract tests                   [landed]
-├── data/samples/               # synthetic documents we wrote            [pending]
+├── data/samples/               # synthetic documents we wrote            [started]
 └── docs/
     ├── ARCHITECTURE.md         # design, data flow, privacy architecture
     ├── MODEL_SETUP.md          # weights, licence, variant, benchmarks
@@ -213,7 +214,7 @@ shapes, injection containment, verdict refusal, silent path, type contracts.
 | Lane | Scope | Status |
 |---|---|---|
 | **A** — Gemma + analysis pipeline | `llm.py`, `prompts/`, `analyze.py` | **Landed** — 20 tests, offline smoke demo |
-| **B** — ingest, retrieve, privacy | `ingest.py`, `retrieve.py`, `privacy/` | Pending — permissive stubs wired via import boundary |
+| **B** — ingest, retrieve, privacy | `ingest.py`, `retrieve.py`, `privacy/` | `ingest.py` **landed** (PDF + .txt, 20 tests); `retrieve.py` and `privacy/` pending |
 | **C** — grounding + safety | `verify.py`, `safety.py`, `injection.py` | **Landed** — 58 tests (verify 20, safety 27, injection 7, pipeline integration 4) |
 | **D** — UI, bench, docs, demo | `app/`, `bench/`, samples | Pending |
 
@@ -221,7 +222,7 @@ shapes, injection containment, verdict refusal, silent path, type contracts.
 importable — no pipeline changes needed. With lane C landed, `analyze()` and
 `ask()` now run real quote/number verification, label downgrade,
 ambiguity/jurisdiction flagging and the injection pre-scan; only lane B's
-`ingest`/`retrieve` stubs remain active. Full suite: 78 tests passing
+`retrieve` stub remains active. Full suite: 110 tests passing
 (`pytest tests/ -q`).
 
 ## Limitations

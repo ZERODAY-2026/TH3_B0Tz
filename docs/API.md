@@ -125,8 +125,9 @@ no unit conversion, no legality judgments, verdict backstop.
 ## Interfaces provided by other lanes (import boundaries)
 
 ```python
-# Lane B — pending
-ingest(path: str) -> Document
+# Lane B — ingest landed (legallens/ingest.py); retrieve pending
+ingest(path: str | Path) -> Document      # never raises on bad files: empty passages + extraction_warnings
+document_text(doc: Document) -> str       # text that Passage.start/end index into
 retrieve(doc: Document, query: str, k: int = 3) -> list[tuple[Passage, float]]
 
 # Lane C — landed (legallens/verify.py, safety.py, injection.py)
@@ -144,8 +145,8 @@ eval_set() -> list[EvalCase]
 `analyze.py` imports each lazily; lane C's modules have landed, so the
 pipeline now runs real grounding verification, label downgrade,
 ambiguity/jurisdiction flagging and the injection pre-scan instead of the
-permissive stubs (lane B's `ingest`/`retrieve` remain pending and still fall
-back). See `legallens/verify.py`, `legallens/safety.py`,
+permissive stubs (lane B's `retrieve` remains pending and still falls back to a
+lexical stub). See `legallens/verify.py`, `legallens/safety.py`,
 `legallens/injection.py` and `docs/examples/SAFETY_EXAMPLES.md` for the
 landed contract and test evidence.
 
