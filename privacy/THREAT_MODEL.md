@@ -19,7 +19,7 @@ what we do **not** claim.
 | Prompts and model answers | Loopback HTTP between our process and `llama-server`, then memory |
 | Findings, summary, Q&A replies | Python process memory; shown in the UI |
 | The user's questions | Python process memory |
-| Embeddings / index (when `retrieve.py` lands) | Memory, or the single session folder below |
+| Embeddings and the retrieval index | Process memory only (`retrieve.py`); dropped by `clear_cache()` |
 
 ## 2. Who we defend against
 
@@ -65,7 +65,7 @@ sends no DNS packet.
 | What | Where |
 |---|---|
 | Python packages (`pip install -r requirements.txt`) | pypi.org |
-| Model weights (`hf_hub_download`, see `docs/MODEL_SETUP.md`) | huggingface.co |
+| Model weights: Gemma GGUF and the all-MiniLM-L6-v2 embedding model (`hf_hub_download`, pinned, see `docs/MODEL_SETUP.md`) | huggingface.co |
 | llama.cpp binaries | github.com (llama.cpp releases) |
 
 ## 5. Evidence
@@ -81,13 +81,24 @@ Report: [`docs/examples/privacy/dependency_audit.md`](../docs/examples/privacy/d
   two `urlopen` calls, to the chat endpoint and `/health`. Both go to the
   configured local server. The three other hits are the word "telemetry" in
   `config.py` comments, next to the kill-switches. **Verdict: expected.**
-- **Runtime dependencies:** pypdf, pdfplumber, pdfminer.six, pypdfium2,
-  Pillow, charset-normalizer, cryptography, cffi and pycparser. Their Python
-  source contains **0** network-client, DNS, socket or telemetry hits.
-  **Verdict: clean.**
-- **Compiled modules** in Pillow, pypdfium2 (PDFium), cryptography, cffi and
-  charset-normalizer can't be read as text. They are image, PDF, crypto and
-  charset libraries with no network role. Layers 1 and 2 cover them at run
+- **How the audit decides what matters:** it profiles a real session
+  (ingest a PDF, build the hybrid index with the embedding model loaded,
+  retrieve). It then separates hits in files that were actually imported
+  ("live") from hits in files that never load and so cannot run.
+- **Live dependency hits: 4**, all in `numpy/lib/_datasource.py`. That is
+  numpy's optional loader, which opens a URL only if a caller passes one to
+  `np.load`/`genfromtxt`. LegalLens never does. **Verdict: not used.**
+- **Installed but never imported:** `tokenizers` depends on `huggingface_hub`,
+  which brings `httpx`, `httpcore`, `anyio`, `fsspec` and `hf-xet`. `onnxruntime`
+  brings `sympy`, `coloredlogs` and its model-conversion scripts. FAISS ships
+  an optional RPC helper. The profile shows none of these are imported: we
+  load the tokenizer with `Tokenizer.from_file()` from a local path, and
+  `HF_HUB_OFFLINE=1` would stop the hub client even if something did.
+  **Verdict: dormant.**
+- **Compiled modules** in Pillow, pypdfium2 (PDFium), cryptography, cffi,
+  charset-normalizer, numpy, FAISS, onnxruntime and tokenizers can't be read
+  as text. They are image, PDF, crypto, maths, vector-index and
+  inference libraries with no network role. Layers 1 and 2 cover them at run
   time, and Layer 2 saw no outside connection. **Verdict: covered by runtime monitoring.**
 - **llama-server** is a native binary from the llama.cpp project. It is covered
   by Layer 2 (its sockets are watched) and Layer 1 (offline run).
@@ -100,14 +111,16 @@ Report: [`docs/examples/privacy/dependency_audit.md`](../docs/examples/privacy/d
 Recorded run: [`docs/examples/privacy/run-monitored/`](../docs/examples/privacy/run-monitored/).
 The full pipeline ran on `data/samples/privacy_canary.txt`: `ingest()`, then
 `analyze()`, then three questions (answerable, not in the document, verdict).
+The questions go through hybrid retrieval, so the embedding model, onnxruntime
+and FAISS are loaded and exercised during the run.
 
 | Check | Result |
 |---|---|
 | Python audit hooks, block mode (every `connect`/`sendto`/DNS/`urllib` call in-process) | 12 events, **0 non-loopback**, all to `127.0.0.1:8080` |
-| OS connection table, LegalLens + llama-server, polled every 200 ms for 160 s | 13 endpoints, **0 non-loopback** |
-| Files created or modified anywhere under %TEMP%, ~/.cache, %LOCALAPPDATA%\LegalLens and the project during the run | 7 files, **0 contain the canary string** |
+| OS connection table, LegalLens + llama-server, polled every 200 ms for 166 s (150 samples) | 13 endpoints, **0 non-loopback** |
+| Files created or modified anywhere under %TEMP%, ~/.cache, %LOCALAPPDATA%\LegalLens and the project during the run | 17 files, **0 contain the canary string** |
 | llama-server log searched for the canary | **not found** |
-| Pipeline output | 4 verified findings; cited answer; "not in the document" for the pet question; verdict question refused |
+| Pipeline output | 4 verified findings; notice question answered and cited from the retrieved termination clause; "not in the document" for the pet question; verdict question refused |
 
 The canary is a unique string that appears only in the test document. If it
 shows up in any file the run touched outside the evidence folder, document text
@@ -136,11 +149,11 @@ this section.
 
 ## 6. Session data and cleanup
 
-All document-derived data lives in process memory today. `retrieve.py`
-(embeddings) and the UI (lane D) must keep anything they store in **one**
-folder, `%LOCALAPPDATA%\LegalLens\session` (or `$XDG_CACHE_HOME/LegalLens`),
+All document-derived data, including embeddings and the retrieval index,
+lives in process memory today; `retrieve.clear_cache()` drops the indexes.
+The UI (lane D) must keep anything it stores in **one** folder, `%LOCALAPPDATA%\LegalLens\session` (or `$XDG_CACHE_HOME/LegalLens`),
 and must offer a "Clear session data" control that empties it. The canary run
-already watches that folder. Rerun the capture and `audit_deps.py` when either
+already watches that folder. Rerun the capture and `audit_deps.py` when the UI
 lands; Gradio in particular must run with `GRADIO_ANALYTICS_ENABLED=False`,
 system fonts and no CDN assets.
 

@@ -61,9 +61,10 @@ def test_loopback_classification():
 def test_audit_finds_our_only_network_code_in_llm_client():
     sys.path.insert(0, str(ROOT / "privacy"))
     import audit_deps
-    own = audit_deps.scan_own_code()
+    profile = audit_deps.runtime_profile()           # a real ingest + retrieve session
+    own = audit_deps.scan_own_code(profile["files"])
     code_hits = [h for h in own["hits"] if h[1] in ("import", "call")]
-    assert code_hits and all(h[0].startswith("legallens/llm.py") for h in code_hits)
+    assert code_hits and all(h[0].startswith("legallens/llm.py") and h[3] for h in code_hits)
     names = {d.metadata["Name"].lower() for d in audit_deps.closure(audit_deps.runtime_roots())}
     assert {"pypdf", "pdfplumber"} <= names and "pytest" not in names
 
