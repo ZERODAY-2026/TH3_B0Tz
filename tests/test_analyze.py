@@ -48,8 +48,10 @@ def test_analyze_returns_verified_shape():
     assert kinds == {"obligation", "penalty"}
     assert a.coverage["found"] == ["obligation", "penalty"]
     assert "termination" in a.coverage["not_found"]
-    # stub-verified path flags findings until C's verifier lands
-    assert all("unverified_stub" in f.flags for f in a.findings)
+    # verify.py has landed: real grounding checks run instead of the
+    # permissive stub, so genuinely-grounded findings pass clean.
+    assert all("unverified_stub" not in f.flags and "unverified" not in f.flags
+               for f in a.findings)
 
 
 def test_analyze_injected_doc_no_prompt_override():

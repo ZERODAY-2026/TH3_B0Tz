@@ -192,9 +192,9 @@ shapes, injection containment, verdict refusal, silent path, type contracts.
 │   ├── prompts/                # extract / explain / summarize / qa
 │   ├── ingest.py               # (B) parsing, chunking, passage IDs      [pending]
 │   ├── retrieve.py             # (B) BM25 + embeddings + local store     [pending]
-│   ├── verify.py               # (C) quote/number verifier               [pending]
-│   ├── safety.py               # (C) labels, refusal, escalation         [pending]
-│   └── injection.py            # (C) instruction-text pre-scan           [pending]
+│   ├── verify.py               # (C) quote/number verifier               [landed]
+│   ├── safety.py               # (C) labels, refusal, escalation         [landed]
+│   └── injection.py            # (C) instruction-text pre-scan           [landed]
 ├── privacy/                    # (B) offline run, monitor, audit, threat model [pending]
 ├── app/                        # (D) UI, 127.0.0.1 only                  [pending]
 ├── bench/                      # (D) eval + speed/memory scripts         [pending]
@@ -214,11 +214,15 @@ shapes, injection containment, verdict refusal, silent path, type contracts.
 |---|---|---|
 | **A** — Gemma + analysis pipeline | `llm.py`, `prompts/`, `analyze.py` | **Landed** — 20 tests, offline smoke demo |
 | **B** — ingest, retrieve, privacy | `ingest.py`, `retrieve.py`, `privacy/` | Pending — permissive stubs wired via import boundary |
-| **C** — grounding + safety | `verify.py`, `safety.py`, `injection.py` | Pending — refusal/silence fallbacks live in `analyze.py` until then |
+| **C** — grounding + safety | `verify.py`, `safety.py`, `injection.py` | **Landed** — 58 tests (verify 20, safety 27, injection 7, pipeline integration 4) |
 | **D** — UI, bench, docs, demo | `app/`, `bench/`, samples | Pending |
 
 `analyze.py` auto-swaps to B's and C's real modules the moment they are
-importable — no pipeline changes needed.
+importable — no pipeline changes needed. With lane C landed, `analyze()` and
+`ask()` now run real quote/number verification, label downgrade,
+ambiguity/jurisdiction flagging and the injection pre-scan; only lane B's
+`ingest`/`retrieve` stubs remain active. Full suite: 78 tests passing
+(`pytest tests/ -q`).
 
 ## Limitations
 

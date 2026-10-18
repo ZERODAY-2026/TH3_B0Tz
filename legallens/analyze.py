@@ -203,6 +203,8 @@ def analyze(doc: Document, config: LLMConfig | None = None, client=None) -> Anal
     Verification is C's code, called through the module boundary so the
     stub is used until C's verify.py lands (same pattern as B's retrieve).
     """
+    _scan_for_injection(doc)
+
     groups = _chunk_passages_for_context(doc.passages)
 
     all_findings: list[Finding] = []
@@ -219,6 +221,7 @@ def analyze(doc: Document, config: LLMConfig | None = None, client=None) -> Anal
             deduped.append(f)
 
     verified = _verify_findings(deduped, doc)
+    _apply_safety_labels(verified)
 
     summary, summary_citations = _generate_summary(verified, config, client)
     analysis = Analysis(
@@ -235,7 +238,7 @@ def analyze(doc: Document, config: LLMConfig | None = None, client=None) -> Anal
         analysis.summary = sv.pruned_summary
         analysis.summary_citations = [m.group(1) for m in _CITE_RE.finditer(sv.pruned_summary)]
 
-    return analysis
+    return _apply_output_filter(analysis)
 
 
 def _verify_findings(findings: list[Finding], doc: Document) -> list[Finding]:
@@ -270,6 +273,47 @@ def _verify_summary(analysis: Analysis, doc: Document):
     except ImportError:
         return None
     return c_verify(analysis, doc)
+
+
+def _scan_for_injection(doc: Document) -> None:
+    """Pre-scan document text for instruction-like strings (C's
+    injection.py, PLAN 6.4); surfaces as a warning on the Document the UI
+    already knows how to show (extraction_warnings is used for exactly this
+    kind of user-facing notice). No-op until injection.py lands."""
+    try:
+        from .injection import scan_document
+    except ImportError:
+        return
+    for warning in scan_document(doc):
+        if warning not in doc.extraction_warnings:
+            doc.extraction_warnings.append(warning)
+
+
+def _apply_safety_labels(findings: list[Finding]) -> None:
+    """Route verified findings through C's label-downgrade and ambiguity /
+    jurisdiction flagging (safety.py) before they reach the summary prompt
+    or the UI. No-op until safety.py lands."""
+    try:
+        from .safety import detect_conflicts, downgrade_label, flag_ambiguity, flag_jurisdiction
+    except ImportError:
+        return
+    for f in findings:
+        downgrade_label(f)
+        flag_ambiguity(f)
+        flag_jurisdiction(f)
+    detect_conflicts(findings)
+
+
+def _apply_output_filter(item):
+    """Last step before anything reaches the user: C's apply_safety()
+    redacts verdict wording ("is unenforceable", "do not sign") the model
+    may have produced despite the prompt (PLAN 6.3). Label/flag passes
+    inside it are idempotent. No-op until safety.py lands."""
+    try:
+        from .safety import apply_safety
+    except ImportError:
+        return item
+    return apply_safety(item, None).item
 
 
 # --------------------------------------------------------------------- ask
@@ -322,7 +366,7 @@ def ask(doc: Document, question: str,
             refused=False,
             escalation_note="retrieved passages did not support a verifiable answer",
         )
-    return reply
+    return _apply_output_filter(reply)
 
 
 SILENT_TEXT = (

@@ -43,3 +43,38 @@ INJECTED = Document(
     ],
     extraction_warnings=[],
 )
+
+VAGUE = Document(
+    doc_id="rental-vague-01",
+    source_name="rental_vague.txt",
+    passages=[
+        Passage(id="p1.c1", page=1, heading="Repairs",
+                text="The Landlord may carry out repairs at its sole discretion and within "
+                     "a reasonable time.",
+                start=0, end=100),
+        Passage(id="p1.c2", page=1, heading="Notice Period",
+                text="The notice period for termination shall be ___ days.",
+                start=101, end=160),
+        Passage(id="p2.c1", page=2, heading="Penalty",
+                text="The Tenant shall pay a penalty determined from time to time by the "
+                     "Landlord.",
+                start=161, end=230),
+    ],
+    extraction_warnings=[],
+)
+
+CONFLICT = Document(
+    doc_id="employment-conflict-01",
+    source_name="employment_conflict.txt",
+    passages=[
+        Passage(id="p1.c1", page=1, heading="Notice - General",
+                text="Either party may terminate this agreement by giving 30 days written "
+                     "notice.",
+                start=0, end=90),
+        Passage(id="p3.c4", page=3, heading="Notice - Annexure",
+                text="Notwithstanding the above, the Employee shall give 90 days written "
+                     "notice before resignation.",
+                start=400, end=490),
+    ],
+    extraction_warnings=[],
+)
