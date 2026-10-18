@@ -13,7 +13,7 @@ import uuid
 from pathlib import Path
 
 from .config import LLMConfig
-from .llm import StubGemma, _validate_findings_payload, generate, generate_json
+from .llm import LLMError, StubGemma, _validate_findings_payload, generate, generate_json
 from .types import Analysis, Citation, Document, Finding, Passage, Reply
 
 log = logging.getLogger(__name__)
@@ -208,8 +208,22 @@ def analyze(doc: Document, config: LLMConfig | None = None, client=None) -> Anal
     groups = _chunk_passages_for_context(doc.passages)
 
     all_findings: list[Finding] = []
-    for group in groups:
-        all_findings.extend(_extract_findings(group, config, client))
+    not_analysed: list[str] = []          # passage IDs the model could not cover
+    answered = 0
+    for i, group in enumerate(groups):
+        try:
+            all_findings.extend(_extract_findings(group, config, client))
+            answered += 1
+        except LLMError:
+            if answered == 0 and not not_analysed:
+                raise                     # model unreachable: nothing to show, say so
+            not_analysed += [p.id for g in groups[i:] for p in g]
+            log.warning("model stopped responding; %d passage(s) not analysed", len(not_analysed))
+            break
+        except ValueError:
+            # PLAN 5.3: no valid JSON after retries -> skip and log, never guess
+            not_analysed += [p.id for p in group]
+            log.warning("no valid findings JSON for %d passage(s); skipped", len(group))
 
     # De-duplicate across chunk-group overlaps: same passage + kind -> first
     seen: set[tuple[str, str]] = set()
@@ -223,12 +237,24 @@ def analyze(doc: Document, config: LLMConfig | None = None, client=None) -> Anal
     verified = _verify_findings(deduped, doc)
     _apply_safety_labels(verified)
 
-    summary, summary_citations = _generate_summary(verified, config, client)
+    try:
+        summary, summary_citations = _generate_summary(verified, config, client)
+    except (LLMError, ValueError):
+        log.warning("summary generation failed; findings returned without a summary")
+        summary, summary_citations = "", []
+    coverage = _compute_coverage(deduped)
+    if not_analysed:
+        coverage["incomplete"] = True
+        coverage["not_analysed"] = not_analysed
+        warning = (f"Part of this document could not be analysed ({len(not_analysed)} of "
+                   f"{len(doc.passages)} clauses, from {not_analysed[0]}). The results are incomplete.")
+        if warning not in doc.extraction_warnings:
+            doc.extraction_warnings.append(warning)
     analysis = Analysis(
         summary=summary,
         summary_citations=summary_citations,
-        findings=deduped,
-        coverage=_compute_coverage(deduped),
+        findings=_prioritise(deduped),
+        coverage=coverage,
     )
 
     # 6.1.6: verify the summary itself — failing sentences are DROPPED
@@ -239,6 +265,11 @@ def analyze(doc: Document, config: LLMConfig | None = None, client=None) -> Anal
         analysis.summary_citations = [m.group(1) for m in _CITE_RE.finditer(sv.pruned_summary)]
 
     return _apply_output_filter(analysis)
+
+
+def _prioritise(findings: list[Finding]) -> list[Finding]:
+    from .priority import prioritise
+    return prioritise(findings)
 
 
 def _verify_findings(findings: list[Finding], doc: Document) -> list[Finding]:
@@ -339,16 +370,24 @@ def ask(doc: Document, question: str,
     import json as _json
 
     gen = _generator(config, client)
-    if isinstance(gen, StubGemma):
-        raw = gen.generate(prompt, config)
-        parsed = _json.loads(raw) if isinstance(raw, str) else raw
-    else:
-        parsed = generate_json(prompt, config)
+    try:
+        if isinstance(gen, StubGemma):
+            raw = gen.generate(prompt, config)
+            parsed = _json.loads(raw) if isinstance(raw, str) else raw
+        else:
+            parsed = generate_json(prompt, config)
+    except ValueError:                    # no valid JSON after retries; LLMError propagates
+        parsed = None
+    if not isinstance(parsed, dict):
+        log.warning("question answer was not a usable JSON object")
+        return Reply(text=NO_ANSWER_TEXT, citations=[], silent=False, refused=False,
+                     escalation_note="the model did not return a usable answer")
 
     reply = Reply(
         text=str(parsed.get("text", "")),
         citations=[Citation(passage_id=c["passage_id"], quote=c["quote"])
-                   for c in parsed.get("citations", []) if isinstance(c, dict)],
+                   for c in parsed.get("citations", [])
+                   if isinstance(c, dict) and "passage_id" in c and "quote" in c],
         silent=bool(parsed.get("silent", False)),
         refused=bool(parsed.get("refused", False)),
         escalation_note=parsed.get("escalation_note"),
@@ -368,6 +407,11 @@ def ask(doc: Document, question: str,
         )
     return _apply_output_filter(reply)
 
+
+NO_ANSWER_TEXT = (
+    "LegalLens could not produce a reliable answer to this question. "
+    "Try asking it in a different way."
+)
 
 SILENT_TEXT = (
     "The document does not appear to say anything about this. "

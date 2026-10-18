@@ -8,7 +8,7 @@ network, not that it does; the monitored and offline runs show what actually hap
 
 | Package | Version | .py files | Network/telemetry hits | Compiled modules |
 |---|---|---|---|---|
-| legallens (our code) | - | 9 | 6 | 0 |
+| legallens (our code) | - | 10 | 6 | 0 |
 | cffi | 2.0.0 | 18 | 0 | 1 |
 | charset-normalizer | 3.4.7 | 12 | 0 | 3 |
 | cryptography | 46.0.7 | 72 | 0 | 1 |
@@ -29,7 +29,7 @@ network, not that it does; the monitored and offline runs show what actually hap
 |---|---|---|
 | `legallens/config.py:1` | telemetry | `"""Shared configuration: paths, telemetry kill-switches, model settings.` |
 | `legallens/config.py:4` | telemetry | `accidental hub/telemetry call is suppressed even if a caller forgets.` |
-| `legallens/config.py:11` | telemetry | `# Telemetry / remote-access kill-switches (PLAN_PS2 section 4). setdefault so` |
+| `legallens/config.py:35` | telemetry | `# Telemetry / remote-access kill-switches (PLAN_PS2 section 4). setdefault so` |
 | `legallens/llm.py:13` | import | `import urllib.request` |
 | `legallens/llm.py:45` | call | `with urllib.request.urlopen(req, timeout=config.timeout) as resp:` |
 | `legallens/llm.py:139` | call | `with urllib.request.urlopen(req, timeout=5) as resp:` |
