@@ -168,7 +168,7 @@ pytest tests/ -q        # deterministic unit + contract tests (no model needed)
 python bench/run.py     # eval: citation accuracy, verifier rate, silence/refusal (lane D)
 ```
 
-Current state: **114 tests passing** — LLM client, analysis pipeline, grounding
+Current state: **127 tests passing** (CI runs them on Ubuntu and Windows, Python 3.11 and 3.13) — LLM client, analysis pipeline, grounding
 verifier, safety layer, injection defence and ingestion (clause chunking,
 header/footer stripping, malformed files).
 
@@ -200,7 +200,8 @@ header/footer stripping, malformed files).
 │   ├── retrieve.py             # (B) BM25 + embeddings + local store     [pending]
 │   ├── verify.py               # (C) quote/number verifier               [landed]
 │   ├── safety.py               # (C) labels, refusal, escalation         [landed]
-│   └── injection.py            # (C) instruction-text pre-scan           [landed]
+│   ├── injection.py            # (C) instruction-text pre-scan           [landed]
+│   └── priority.py             # (C) severity score + ordering (PLAN 5.4) [landed]
 ├── privacy/                    # (B) offline run, monitor, audit, threat model [landed]
 ├── app/                        # (D) UI, 127.0.0.1 only                  [pending]
 ├── bench/                      # (D) eval + speed/memory scripts         [pending]
@@ -227,7 +228,7 @@ header/footer stripping, malformed files).
 importable — no pipeline changes needed. With lane C landed, `analyze()` and
 `ask()` now run real quote/number verification, label downgrade,
 ambiguity/jurisdiction flagging and the injection pre-scan; only lane B's
-`retrieve` stub remains active. Full suite: 110 tests passing
+`retrieve` stub remains active. Full suite: 127 tests passing
 (`pytest tests/ -q`).
 
 ## Limitations
@@ -244,6 +245,11 @@ Stated honestly (criterion C7):
    file (scope in the threat model).
 5. **No legal conclusions, ever** — validity, enforceability and "should I
    sign" are refused and escalated to a qualified professional.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for set-up, the lane workflow, the privacy
+check for new dependencies and how to add a document type.
 
 ## Licence and attribution
 

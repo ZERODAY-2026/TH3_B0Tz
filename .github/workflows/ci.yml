@@ -1,0 +1,36 @@
+name: CI
+
+# Deterministic checks only: no model weights, no GPU, and the tests make no
+# network calls (the privacy tests use the audit-hook guard in a subprocess).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Byte-compile
+        run: python -m compileall -q legallens privacy tests smoke.py
+      - name: Tests
+        run: pytest tests/ -q
+      - name: Offline smoke demo (stub model)
+        run: python smoke.py
+      - name: Dependency network audit
+        run: python privacy/audit_deps.py

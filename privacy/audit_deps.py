@@ -133,7 +133,8 @@ def render(own: dict, deps: list[dict], loaded: list[str]) -> str:
         if d["hits"]:
             out += ["| Where | Kind | Line |", "|---|---|---|"]
             for where, kind, text in d["hits"][:25]:
-                out.append(f"| `{where}` | {kind} | `{text.replace('|', '\\|')}` |")
+                cell = text.replace("|", "\\|")
+                out.append(f"| `{where}` | {kind} | `{cell}` |")
             if len(d["hits"]) > 25:
                 out.append(f"| … | | {len(d['hits']) - 25} more |")
             out.append("")
