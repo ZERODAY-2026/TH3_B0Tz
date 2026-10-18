@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.error
 import urllib.request
 
 from .config import LLMConfig
@@ -19,13 +20,20 @@ log = logging.getLogger(__name__)
 # the dependency audit to clear (PLAN 12, layer 3).
 
 
+class LLMError(RuntimeError):
+    """The local model server is unreachable or did not answer in time."""
+
+
 def generate(prompt: str, config: LLMConfig | None = None) -> str:
     """Send prompt to local Gemma, return raw text response."""
-    config = config or LLMConfig()
+    config = config or LLMConfig.from_env()
     payload = json.dumps({
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": config.max_tokens,
         "temperature": config.temperature,
+        # Gemma 4 thinks by default and llama-server then returns an empty
+        # content field; findings must come back as plain JSON.
+        "chat_template_kwargs": {"enable_thinking": False},
     }).encode()
     req = urllib.request.Request(
         f"{config.base_url}/v1/chat/completions",
@@ -33,8 +41,14 @@ def generate(prompt: str, config: LLMConfig | None = None) -> str:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=config.timeout) as resp:
-        body = json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(req, timeout=config.timeout) as resp:
+            body = json.loads(resp.read().decode())
+    except (urllib.error.URLError, TimeoutError) as e:
+        raise LLMError(
+            f"local model at {config.base_url} failed: {e}. Is llama-server "
+            f"running? On slow hardware raise GEMMA_TIMEOUT (now {config.timeout:.0f}s)."
+        ) from e
     return body["choices"][0]["message"]["content"] or ""
 
 
@@ -89,7 +103,7 @@ def generate_json(prompt: str, config: LLMConfig | None = None,
     feeding that back is what makes retries actually help.
     client: optional stub with .generate(prompt, config) for offline tests.
     """
-    config = config or LLMConfig()
+    config = config or LLMConfig.from_env()
     last_error: str | None = None
     for attempt in range(config.max_retries + 1):
         full_prompt = prompt if attempt == 0 else (
@@ -119,7 +133,7 @@ def generate_json(prompt: str, config: LLMConfig | None = None,
 
 def health_check(config: LLMConfig | None = None) -> bool:
     """True if the local model server is responding."""
-    config = config or LLMConfig()
+    config = config or LLMConfig.from_env()
     try:
         req = urllib.request.Request(f"{config.base_url}/health", method="GET")
         with urllib.request.urlopen(req, timeout=5) as resp:

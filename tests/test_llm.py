@@ -3,7 +3,8 @@ import json
 
 import pytest
 
-from legallens.llm import StubGemma, extract_json, generate_json, health_check
+from legallens.config import LLMConfig
+from legallens.llm import LLMError, StubGemma, extract_json, generate, generate_json, health_check
 
 
 def test_extract_json_plain():
@@ -57,5 +58,19 @@ def test_generate_json_gives_up_after_max_retries():
         generate_json("return json", client=stub)
 
 
+# Port 9 (discard) has no listener, even while a dev llama-server runs on 8080.
+NO_SERVER = LLMConfig(base_url="http://127.0.0.1:9", timeout=2)
+
+
 def test_health_check_no_server():
-    assert health_check() is False  # nothing on 127.0.0.1:8080 in CI
+    assert health_check(NO_SERVER) is False
+
+
+def test_generate_no_server_raises_clear_error():
+    with pytest.raises(LLMError, match="GEMMA_TIMEOUT"):
+        generate("hi", NO_SERVER)
+
+
+def test_config_reads_env(monkeypatch):
+    monkeypatch.setenv("GEMMA_TIMEOUT", "900")
+    assert LLMConfig.from_env().timeout == 900
