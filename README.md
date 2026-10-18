@@ -105,8 +105,8 @@ steps):
 
 ```bash
 mkdir models
-# Gemma 4 E4B, 4-bit GGUF (~4–5 GB) — accept the licence on the model card first
-huggingface-cli download <gemma-4-e4b-gguf-repo> --local-dir models
+# Gemma 4 E4B, 4-bit GGUF (4.98 GB) — read the licence on the model card first
+python -c "from huggingface_hub import hf_hub_download as d; d('unsloth/gemma-4-E4B-it-GGUF', 'gemma-4-E4B-it-Q4_K_M.gguf', local_dir='models')"
 ```
 
 After this step, **no network access is ever needed again**.
@@ -114,14 +114,16 @@ After this step, **no network access is ever needed again**.
 ## Run
 
 ```bash
-# Terminal 1 — start the local model server (loopback only)
-llama-server -m models/gemma-4-e4b-q4_k_m.gguf --host 127.0.0.1 --port 8080 -c 8192
+# Terminal 1 — start the local model server (loopback only).
+# -ngl 99 puts every layer on the GPU (RTX 4060 8 GB: fits); drop it on CPU-only machines.
+llama-server -m models/gemma-4-E4B-it-Q4_K_M.gguf --host 127.0.0.1 --port 8080 -c 8192 -ngl 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}"
 
 # Terminal 2 — analysis pipeline smoke test (offline stubs, no server needed)
 python smoke.py
 
 # ...or with the real model:
 python smoke.py --real
+python smoke.py --file data/samples/rental_clear.pdf   # a real file, end to end
 
 # Tests (deterministic; no model or network required)
 pytest tests/ -q
@@ -145,16 +147,19 @@ at import (`legallens/config.py`), not just documented:
 
 ## Privacy guarantees
 
-1. **Cannot connect** — the full pipeline runs with networking disabled
-   (adapter off / `--network none` container / WSL2 namespace).
-2. **Does not try** — a connection monitor around a normal run records zero
-   non-loopback connections.
-3. **Has no code that connects** — `privacy/audit_deps.py` plus manual review;
-   every remaining call (there are none at runtime) is listed in the threat model.
+Three independent layers, all scripted in `privacy/` and explained in
+[privacy/THREAT_MODEL.md](privacy/THREAT_MODEL.md):
 
-Session artifacts (chunks, embeddings, summaries) live in **one** directory with
-a "clear session" control; logs carry timings and counts only, never document
-text. Full policy: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+| Layer | Tool | Status |
+|---|---|---|
+| 1. **Cannot connect**: full run with the machine offline | `privacy/run_offline.ps1` (Windows, Airplane mode) / `run_offline.sh` (Linux network namespace) | To record on the demo laptop |
+| 2. **Does not try**: every connection attempt watched during a full run | `privacy/monitor.ps1` / `monitor.sh` + in-process audit-hook guard (`privacy/netguard.py`) | **PASS**: 0 non-loopback connections, canary found in no file ([evidence](docs/examples/privacy/run-monitored/)) |
+| 3. **Has no code that connects**: source audit of our code and every runtime dependency | `privacy/audit_deps.py` | **Clean**: only `llm.py` talks to the local model ([report](docs/examples/privacy/dependency_audit.md)) |
+
+The only run-time network traffic is LegalLens → `127.0.0.1:8080` (the local
+model). Logs carry timings and counts only, never document text. Session data
+goes in **one** folder with a "clear session" control once retrieval and the UI
+land.
 
 ## Testing
 
@@ -163,7 +168,7 @@ pytest tests/ -q        # deterministic unit + contract tests (no model needed)
 python bench/run.py     # eval: citation accuracy, verifier rate, silence/refusal (lane D)
 ```
 
-Current state: **110 tests passing** — LLM client, analysis pipeline, grounding
+Current state: **114 tests passing** — LLM client, analysis pipeline, grounding
 verifier, safety layer, injection defence and ingestion (clause chunking,
 header/footer stripping, malformed files).
 
@@ -196,7 +201,7 @@ header/footer stripping, malformed files).
 │   ├── verify.py               # (C) quote/number verifier               [landed]
 │   ├── safety.py               # (C) labels, refusal, escalation         [landed]
 │   └── injection.py            # (C) instruction-text pre-scan           [landed]
-├── privacy/                    # (B) offline run, monitor, audit, threat model [pending]
+├── privacy/                    # (B) offline run, monitor, audit, threat model [landed]
 ├── app/                        # (D) UI, 127.0.0.1 only                  [pending]
 ├── bench/                      # (D) eval + speed/memory scripts         [pending]
 ├── tests/                      # unit + contract tests                   [landed]
