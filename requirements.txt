@@ -1,0 +1,5 @@
+# DataMind pinned deps (Person A surface; B/D append theirs)
+openai>=2.0        # OpenAI-compatible Gemma client (Ollama/LM Studio/vLLM/AI Studio)
+sqlglot>=30.0      # SQL parsing + read-only validation
+# dev
+pytest>=8.0
