@@ -15,3 +15,9 @@ venv/
 # session artifacts (document-derived text must never be committed)
 sessions/
 *.log
+
+# node (docx generator deps)
+node_modules/
+
+# rendered page previews of the solution PDF
+docs/_page*.png
