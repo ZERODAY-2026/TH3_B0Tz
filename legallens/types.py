@@ -80,3 +80,13 @@ class VerifyResult:
     reason: str = ""
     repaired_quote: str | None = None
     pruned_summary: str | None = None
+
+
+@dataclass
+class SafeOutput:
+    """Return type of safety.apply_safety() (PLAN_PS2 section 5.2). Additive
+    to the H0 contract -- apply_safety() was always named in the plan but
+    never given a concrete return type until lane C landed."""
+    item: "Analysis | Reply"
+    disclaimer: str
+    blocked_phrases: list[str] = field(default_factory=list)

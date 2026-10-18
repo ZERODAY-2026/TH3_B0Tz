@@ -21,7 +21,8 @@ Finding(id, kind, party, plain_text, quote, passage_id, label,
   # kind:        obligation | right | deadline | penalty | termination | ambiguity | risk
   # label:       STATED | INTERPRETATION | CONCERN
   # flags:       ambiguous, jurisdiction_dependent, needs_professional,
-  #              quote_corrected, unverified, unverified_stub, injected_text
+  #              quote_corrected, unverified, unverified_stub, injected_text,
+  #              label_downgraded, conflicting
 
 Analysis(summary, summary_citations, findings, coverage)
   # summary_citations: passage IDs backing the summary (grounding rule 6.1.6)
@@ -31,6 +32,8 @@ Reply(text, citations=[Citation(passage_id, quote)], silent=False,
       refused=False, escalation_note=None)
 
 VerifyResult(ok, reason, repaired_quote=None, pruned_summary=None)
+
+SafeOutput(item, disclaimer, blocked_phrases=[])   # return type of apply_safety()
 ```
 
 ## Entry points — `legallens/analyze.py` *(landed)*
@@ -126,20 +129,25 @@ no unit conversion, no legality judgments, verdict backstop.
 ingest(path: str) -> Document
 retrieve(doc: Document, query: str, k: int = 3) -> list[tuple[Passage, float]]
 
-# Lane C — pending
+# Lane C — landed (legallens/verify.py, safety.py, injection.py)
 verify(item: Finding | Reply | Analysis, doc: Document) -> VerifyResult
 classify_question(question: str) -> "explain" | "document_question" | "verdict_request" | "off_topic"
 refusal_reply(question: str, kind: str) -> Reply
 apply_safety(item: Analysis | Reply, doc: Document) -> SafeOutput
+scan_document(doc: Document) -> list[str]   # injection pre-scan, wired into analyze()
 
 # Lane D — pending
 load_sample(name: str) -> str
 eval_set() -> list[EvalCase]
 ```
 
-`analyze.py` imports each lazily and falls back to clearly-flagged stubs
-(`unverified_stub` flags, lexical retrieve, local refusal templates) until the
-real module exists — the swap is automatic, with no pipeline changes.
+`analyze.py` imports each lazily; lane C's modules have landed, so the
+pipeline now runs real grounding verification, label downgrade,
+ambiguity/jurisdiction flagging and the injection pre-scan instead of the
+permissive stubs (lane B's `ingest`/`retrieve` remain pending and still fall
+back). See `legallens/verify.py`, `legallens/safety.py`,
+`legallens/injection.py` and `docs/examples/SAFETY_EXAMPLES.md` for the
+landed contract and test evidence.
 
 ## CLI
 
