@@ -168,7 +168,7 @@ pytest tests/ -q        # deterministic unit + contract tests (no model needed)
 python bench/run.py     # eval: citation accuracy, verifier rate, silence/refusal (lane D)
 ```
 
-Current state: **127 tests passing** (CI runs them on Ubuntu and Windows, Python 3.11 and 3.13) — LLM client, analysis pipeline, grounding
+Current state: **136 tests passing** (CI runs them on Ubuntu and Windows, Python 3.11 and 3.13) — LLM client, analysis pipeline, grounding
 verifier, safety layer, injection defence and ingestion (clause chunking,
 header/footer stripping, malformed files).
 
@@ -197,7 +197,7 @@ header/footer stripping, malformed files).
 │   ├── analyze.py              # analyze(), ask(), chunking, summary
 │   ├── prompts/                # extract / explain / summarize / qa
 │   ├── ingest.py               # (B) parsing, chunking, passage IDs      [landed]
-│   ├── retrieve.py             # (B) BM25 + embeddings + local store     [pending]
+│   ├── retrieve.py             # (B) BM25 + MiniLM (ONNX) + FAISS, in memory [landed]
 │   ├── verify.py               # (C) quote/number verifier               [landed]
 │   ├── safety.py               # (C) labels, refusal, escalation         [landed]
 │   ├── injection.py            # (C) instruction-text pre-scan           [landed]
@@ -220,15 +220,16 @@ header/footer stripping, malformed files).
 | Lane | Scope | Status |
 |---|---|---|
 | **A** — Gemma + analysis pipeline | `llm.py`, `prompts/`, `analyze.py` | **Landed** — 20 tests, offline smoke demo |
-| **B** — ingest, retrieve, privacy | `ingest.py`, `retrieve.py`, `privacy/` | `ingest.py` **landed** (PDF + .txt, 20 tests); `retrieve.py` and `privacy/` pending |
+| **B** — ingest, retrieve, privacy | `ingest.py`, `retrieve.py`, `privacy/` | **Landed**: `ingest.py` (PDF + .txt), `retrieve.py` (hybrid BM25 + embeddings, 15/15 handwritten questions in the top 3), `privacy/` (monitored run PASS; offline run to record on the demo laptop) |
 | **C** — grounding + safety | `verify.py`, `safety.py`, `injection.py` | **Landed** — 58 tests (verify 20, safety 27, injection 7, pipeline integration 4) |
 | **D** — UI, bench, docs, demo | `app/`, `bench/`, samples | Pending |
 
 `analyze.py` auto-swaps to B's and C's real modules the moment they are
 importable — no pipeline changes needed. With lane C landed, `analyze()` and
 `ask()` now run real quote/number verification, label downgrade,
-ambiguity/jurisdiction flagging and the injection pre-scan; only lane B's
-`retrieve` stub remains active. Full suite: 127 tests passing
+ambiguity/jurisdiction flagging and the injection pre-scan, and `ask()`
+retrieves clauses with lane B's hybrid retriever. No stubs remain in the
+pipeline. Full suite: 136 tests passing
 (`pytest tests/ -q`).
 
 ## Limitations

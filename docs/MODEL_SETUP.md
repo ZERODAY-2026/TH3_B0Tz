@@ -58,6 +58,25 @@ installs (a `typer` version clash); the library itself is fine.
 
 `models/` is gitignored — weights are **never** committed.
 
+### Embedding model for retrieval (setup time only, ~91 MB)
+
+`legallens/retrieve.py` ranks clauses with BM25 plus `sentence-transformers/all-MiniLM-L6-v2`
+(Apache-2.0), run as ONNX by onnxruntime on the CPU — no PyTorch. Pinned to an
+exact commit:
+
+```bash
+python -c "from huggingface_hub import hf_hub_download as d; [d('sentence-transformers/all-MiniLM-L6-v2', f, revision='1110a243fdf4706b3f48f1d95db1a4f5529b4d41', local_dir='models/all-MiniLM-L6-v2') for f in ('onnx/model.onnx', 'tokenizer.json')]"
+```
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `onnx/model.onnx` | 90,405,214 bytes | `6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452` |
+| `tokenizer.json` | 466,247 bytes | `be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037` |
+
+Without these files retrieval still works, on BM25 alone (exact words only, so
+paraphrased questions match less well). Set `LEGALLENS_EMBED_MODEL_DIR` to use
+another folder.
+
 ## 4. Run
 
 ### Demo laptop: RTX 4060 (8 GB VRAM), 24 GB RAM — recommended
