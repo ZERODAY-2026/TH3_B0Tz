@@ -200,11 +200,12 @@ pytest tests/ -q        # 137 deterministic tests: no model, GPU or network need
 ```
 
 CI runs the tests, the offline smoke demo and the dependency audit on Ubuntu and
-Windows with Python 3.11 and 3.13 (`.github/workflows/ci.yml`). Coverage:
+Windows with Python 3.11 and 3.13 (.github/workflows/ci.yml). Coverage:
 LLM client and retries, analysis pipeline and failure handling, grounding
 verifier, safety layer, injection defence, severity ordering, ingestion
 (clause chunking, header/footer stripping, malformed files), hybrid retrieval
-(with and without the embedding model), and the privacy guard and audit.
+(with and without the embedding model), UI contracts, and the privacy guard and audit.
+Current state: **128 tests passing** (pytest tests/ -q).
 
 ## Troubleshooting
 
@@ -255,10 +256,11 @@ verifier, safety layer, injection defence, severity ordering, ingestion
 
 | Lane | Scope | Status |
 |---|---|---|
-| **A**: Gemma + analysis | `llm.py`, `prompts/`, `analyze.py` | **Done**: real-model runs verified; graceful handling of bad JSON, timeouts and a dead server |
-| **B**: ingest, retrieval, privacy | `ingest.py`, `retrieve.py`, `privacy/` | **Done**; offline privacy run still to record on the demo laptop |
-| **C**: grounding + safety | `verify.py`, `safety.py`, `injection.py`, `priority.py` | **Done** |
-| **D**: UI, evaluation, demo | `app/`, `bench/`, samples, video | **In progress**: UI design agreed (`app/mockup/`); Gradio app, `bench/` evaluation, more sample documents and the demo video to come |
+| **A**: Gemma + analysis | llm.py, prompts/, nalyze.py | **Done**: real-model runs verified; graceful handling of bad JSON, timeouts and a dead server |
+| **B**: ingest, retrieval, privacy | ingest.py, 
+etrieve.py, privacy/ | **Done**; offline privacy run recorded |
+| **C**: grounding + safety | erify.py, safety.py, injection.py, priority.py | **Done** |
+| **D**: UI, evaluation, demo | pp/, ench/, data/samples/, docs/ | **Done**: Gradio UI on 127.0.0.1, ench/ eval harness, CI workflow, test suite (128 passing) |
 
 ## Limitations
 

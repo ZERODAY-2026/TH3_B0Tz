@@ -1,0 +1,47 @@
+﻿EMPLOYMENT AGREEMENT
+
+Employer: RapidBuild Technologies Pvt. Ltd.
+Employee: Mr. Vikram Joshi
+Date: 1 August 2026
+
+Clause 1: Position
+The Employee is appointed as Marketing Manager, reporting to the Director.
+
+Clause 2: Salary
+Gross monthly salary: Rs. 75,000, paid on the last working day of each month.
+
+Clause 3: Termination
+Section 3a: The Company may terminate the Employee at any time, for any
+reason, with or without cause, and with no notice required.
+
+Section 3b: In the event of termination without cause, the Employee shall
+receive 3 months salary as severance.
+
+Section 3c: The Employee may not be terminated without 90 days written
+notice and a documented performance improvement plan.
+
+[NOTE: Sections 3a and 3c directly contradict each other. 3a says at-will
+with no notice, 3c requires 90 days notice and a PIP.]
+
+Clause 4: Non-Compete
+The Employee agrees not to engage in any marketing, advertising, or
+consulting work, in any industry, anywhere in India, for 24 months after
+leaving the Company.
+
+[NOTE: Unreasonably broad non-compete: all industries, national scope,
+24 months.]
+
+Clause 5: Intellectual Property
+All ideas, concepts, strategies, and creative works the Employee produces,
+including those made on personal time and unrelated to company business,
+belong to the Employer.
+
+[NOTE: Overreach: claims ownership of personal, off-duty work product.]
+
+Clause 6: Service Bond
+If the Employee resigns within 36 months of joining, the Employee shall
+pay the Company Rs. 5,00,000 towards training and opportunity costs.
+
+Clause 7: Working Hours
+Working hours shall be as decided by the Company from time to time. The
+Company may require additional hours without extra compensation.
