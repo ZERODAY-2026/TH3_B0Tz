@@ -16,7 +16,10 @@ pdfplumber==0.11.10              # fallback for layout-heavy pages
 # sentence-transformers>=3.0     # local MiniLM-class embeddings, setup-time download
 
 # --- lane D (pending): UI ----------------------------------------------------
-# gradio>=4.0
+gradio>=4.0
 
 # --- dev ---------------------------------------------------------------------
 pytest>=8.0
+
+psutil>=6.0
+ruff>=0.6
