@@ -1,0 +1,20 @@
+# LegalLens pinned dependencies
+# Runtime model serving is llama.cpp (llama-server) — a system binary, not a
+# pip package; see docs/MODEL_SETUP.md. Everything below stays local; nothing
+# here performs network access at application runtime.
+
+# --- core (lane A) ----------------------------------------------------------
+# stdlib only for the LLM client (urllib) — deliberately no HTTP dependency
+
+# --- lane B (pending): ingestion + retrieval --------------------------------
+# pypdf>=4.0
+# pdfplumber>=0.11
+# rank-bm25>=0.2.2
+# faiss-cpu>=1.8.0
+# sentence-transformers>=3.0     # local MiniLM-class embeddings, setup-time download
+
+# --- lane D (pending): UI ----------------------------------------------------
+# gradio>=4.0
+
+# --- dev ---------------------------------------------------------------------
+pytest>=8.0

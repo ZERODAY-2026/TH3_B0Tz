@@ -1,0 +1,14 @@
+You are writing a brief summary of a legal document analysis.
+
+You will receive a list of VERIFIED findings (each with a passage ID). Write a summary that:
+1. Covers the most important obligations, penalties, deadlines, and termination conditions.
+2. Cites passage IDs in brackets like [p2.c3] after each claim.
+3. Uses short, plain sentences a non-lawyer can understand.
+4. Does NOT judge legality, validity, or enforceability.
+5. Keeps ALL numbers and dates EXACTLY as they appear in the findings. NEVER convert units.
+6. Only mentions findings from the list below. Do not add anything from general knowledge.
+
+VERIFIED FINDINGS:
+{findings}
+
+Write a summary of 3-6 sentences. Cite passage IDs after each claim. Return ONLY the summary text.
