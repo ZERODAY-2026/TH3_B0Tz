@@ -57,13 +57,18 @@ _STOP_WORDS = re.compile(
 
 # ------------------------------------------------------------ classification
 
+_VERDICT_WORDS = r"(legal|lawful|enforceable|valid|void|illegal|unlawful|unenforceable|binding|allowed|fair)"
 _VERDICT_RE = re.compile(
-    r"\b(is\s+this|is\s+it|is\s+that)\b.{0,40}\b(legal|enforceable|valid|void|illegal)\b"
-    r"|\b(legal|enforceable|valid|void|illegal)\b.{0,40}\?"
-    r"|\bshould\s+i\s+sign\b"
+    rf"\b(is\s+this|is\s+it|is\s+that|are\s+these|are\s+they)\b.{{0,40}}\b{_VERDICT_WORDS}\b"
+    # "Is the late fee legal?" -- the verdict word closes the question;
+    # "What is the legal notice period?" (legal as an adjective) does not.
+    rf"|\b(is|are|was|would|will)\b[^?]{{0,60}}\b{_VERDICT_WORDS}\s*\??\s*$"
+    r"|\bshould\s+i\s+(sign|accept|agree)\b"
     r"|\bcan\s+they\s+(do\s+this|do\s+that)\b"
-    r"|\bis\s+this\s+allowed\b"
-    r"|\bam\s+i\s+required\s+to\s+sign\b",
+    r"|\bam\s+i\s+required\s+to\s+sign\b"
+    r"|\b(hold|stand)\s+up\s+in\s+court\b"
+    r"|\b(will|would)\s+i\s+win\b"
+    r"|\bcan\s+i\s+(sue|take\s+(them|him|her)\s+to\s+court)\b",
     re.IGNORECASE,
 )
 
@@ -231,6 +236,22 @@ def detect_conflicts(findings: list[Finding]) -> list[Finding]:
 
 # -------------------------------------------------------- forbidden phrases
 
+# "This agreement is valid for 11 months", "is legal tender", "legally
+# refundable" are factual, not verdicts: phrases match on word boundaries,
+# and a verdict adjective followed by a period/scope word is let through.
+_FACTUAL_FOLLOW = r"(?!\s+(?:for|from|until|till|up\s+to|through|between|only|tender|notice|heir|guardian|representative|age)\b)"
+_VERDICT_ADJ = ("illegal", "void", "unenforceable", "enforceable", "legal", "valid")
+
+
+def _phrase_pattern(phrase: str) -> re.Pattern:
+    body = r"\s+".join(re.escape(w) for w in phrase.split())
+    tail = _FACTUAL_FOLLOW if phrase.split()[-1] in _VERDICT_ADJ else ""
+    return re.compile(rf"(?<![\w-]){body}(?![\w-]){tail}", re.IGNORECASE)
+
+
+_FORBIDDEN_RES = [(p, _phrase_pattern(p)) for p in FORBIDDEN_PHRASES]
+
+
 def filter_forbidden_phrases(text: str) -> tuple[str, list[str]]:
     """Scan for verdict-style wording that must never appear in output
     (PLAN 6.3 / 16). Hits are reported for the test suite and for logging;
@@ -239,8 +260,7 @@ def filter_forbidden_phrases(text: str) -> tuple[str, list[str]]:
     """
     hits: list[str] = []
     out = text
-    for phrase in FORBIDDEN_PHRASES:
-        pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+    for phrase, pattern in _FORBIDDEN_RES:
         if pattern.search(out):
             hits.append(phrase)
             out = pattern.sub("[redacted]", out)

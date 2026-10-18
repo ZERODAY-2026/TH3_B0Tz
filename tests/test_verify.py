@@ -211,3 +211,47 @@ def test_verify_unsupported_type_raises():
     import pytest
     with pytest.raises(TypeError):
         verify("not a Finding/Reply/Analysis", RENTAL)
+
+
+# ------------------------------------------------- review fixes (near match)
+
+def test_near_match_does_not_launder_distorted_number():
+    # Quote is a near match (dropped comma), but the explanation turns
+    # 60 days into 2 months -- must be rejected, not "quote_corrected".
+    f = _real_finding(
+        "p2.c2",
+        "Either party may terminate this agreement by giving 60 days written "
+        "notice to the other party",
+        "Either party may terminate with 2 months notice.",
+    )
+    r = verify(f, RENTAL)
+    assert r.ok is False and r.repaired_quote is None
+    assert "number/date mismatch" in r.reason
+
+
+def test_near_match_repair_is_exact_source_text():
+    passage = RENTAL.passage("p2.c2").text
+    f = _real_finding(
+        "p2.c2",
+        "Either party may terminate this agreement by giving 60 days writen notice to the other party",  # typo
+        "Either party may terminate with 60 days notice.",
+    )
+    r = verify(f, RENTAL)
+    assert r.repaired_quote is not None
+    assert r.repaired_quote in passage           # a real substring, not an approximation
+    assert r.repaired_quote.startswith("Either party")
+
+
+def test_near_match_search_is_fast_on_long_passage():
+    import time
+    from legallens.types import Document, Passage
+    text = " ".join(["The Employee shall maintain confidentiality of all proprietary "
+                     "information disclosed during employment."] * 15)
+    doc = Document(doc_id="d", source_name="long.txt", passages=[
+        Passage(id="p1.c1", page=1, heading=None, text=text, start=0, end=len(text))])
+    f = _real_finding("p1.c1", "The Employer may terminate employment with immediate effect "
+                      "for gross misconduct as determined by management.", "x")
+    t = time.perf_counter()
+    r = verify(f, doc)
+    assert r.ok is False and r.repaired_quote is None
+    assert time.perf_counter() - t < 5.0     # was ~30 s with the full sliding scan

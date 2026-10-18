@@ -238,7 +238,7 @@ def analyze(doc: Document, config: LLMConfig | None = None, client=None) -> Anal
         analysis.summary = sv.pruned_summary
         analysis.summary_citations = [m.group(1) for m in _CITE_RE.finditer(sv.pruned_summary)]
 
-    return analysis
+    return _apply_output_filter(analysis)
 
 
 def _verify_findings(findings: list[Finding], doc: Document) -> list[Finding]:
@@ -304,6 +304,18 @@ def _apply_safety_labels(findings: list[Finding]) -> None:
     detect_conflicts(findings)
 
 
+def _apply_output_filter(item):
+    """Last step before anything reaches the user: C's apply_safety()
+    redacts verdict wording ("is unenforceable", "do not sign") the model
+    may have produced despite the prompt (PLAN 6.3). Label/flag passes
+    inside it are idempotent. No-op until safety.py lands."""
+    try:
+        from .safety import apply_safety
+    except ImportError:
+        return item
+    return apply_safety(item, None).item
+
+
 # --------------------------------------------------------------------- ask
 
 def ask(doc: Document, question: str,
@@ -354,7 +366,7 @@ def ask(doc: Document, question: str,
             refused=False,
             escalation_note="retrieved passages did not support a verifiable answer",
         )
-    return reply
+    return _apply_output_filter(reply)
 
 
 SILENT_TEXT = (

@@ -21,7 +21,9 @@ INJECTION_PATTERNS = (
     r"output\s+the\s+following",
     r"new\s+instructions\s*:",
     r"system\s+prompt",
-    r"act\s+as\s+(a|an)\b",
+    # "The Agent shall act as a representative" is ordinary contract text;
+    # only flag role-play aimed at the model.
+    r"\b(you|assistant|ai|model)\s+((should|must|will|now)\s+)*act\s+as\b",
     r"pretend\s+you\s+are",
     r"this\s+contract\s+is\s+fully\s+legal\s+and\s+safe\s+to\s+sign",
 )

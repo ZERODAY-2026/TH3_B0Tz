@@ -70,3 +70,19 @@ def test_analyze_vague_doc_findings_get_ambiguity_flag():
     })
     a = analyze(VAGUE, client=client)
     assert any("ambiguous" in f.flags for f in a.findings)
+
+
+def test_analyze_output_filter_redacts_verdict_wording():
+    client = StubGemma(responses={
+        "you read legal document passages": json.dumps([
+            {"kind": "penalty", "party": "Tenant",
+             "plain_text": "A late fee of Rs. 500 per day applies, so do not sign this.",
+             "quote": "the Tenant shall pay a late fee of Rs. 500 per day",
+             "passage_id": "p2.c1", "label": "STATED", "confidence": "high"},
+        ]),
+        "brief summary": "A late fee of Rs. 500 per day applies [p2.c1]. "
+                         "This clause is unenforceable [p2.c1].",
+    })
+    a = analyze(RENTAL, client=client)
+    assert "unenforceable" not in a.summary.lower()
+    assert all("do not sign" not in f.plain_text.lower() for f in a.findings)

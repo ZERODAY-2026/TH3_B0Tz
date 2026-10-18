@@ -24,27 +24,55 @@ _QUOTE_MAP = {
 _WS_RE = re.compile(r"\s+")
 
 
-def _normalize(s: str) -> str:
+def _normalize_with_map(s: str) -> tuple[str, list[int]]:
     """Unicode NFKC, unify curly quotes/dashes, collapse whitespace, casefold.
 
+    Also returns, for every character of the normalised string, the index
+    of the raw character it came from, so a span found in normalised text
+    maps back to the exact source text (used for near-match repair).
     This is the single normalisation both the substring check and the
     near-match repair run against, so "exact match" and "near match" agree
     on what counts as the same text (PLAN 6.1).
     """
-    s = unicodedata.normalize("NFKC", s)
-    for src, dst in _QUOTE_MAP.items():
-        s = s.replace(src, dst)
-    s = _WS_RE.sub(" ", s).strip()
-    return s.casefold()
+    out: list[str] = []
+    idx: list[int] = []
+    pending_space = False
+    for i, ch in enumerate(s):
+        piece = unicodedata.normalize("NFKC", ch)
+        piece = "".join(_QUOTE_MAP.get(c, c) for c in piece).casefold()
+        for c in piece:
+            if c.isspace():
+                pending_space = bool(out)
+                continue
+            if pending_space:
+                out.append(" ")
+                idx.append(i - 1)
+                pending_space = False
+            out.append(c)
+            idx.append(i)
+    return "".join(out), idx
+
+
+def _normalize(s: str) -> str:
+    return _normalize_with_map(s)[0]
 
 
 # ------------------------------------------------------------- near-match
 
+_ANCHOR_MIN = 8      # shortest shared run worth anchoring a window on
+_MAX_ANCHORS = 5
+
+
 def _find_best_span(normalized_quote: str, normalized_passage: str) -> tuple[float, int, int]:
-    """Slide a window the length of the quote across the passage, looking
-    for the best SequenceMatcher ratio. Returns (ratio, start, end) in the
-    normalised passage's coordinates; (0.0, -1, -1) if the passage is empty
-    or shorter than a usable window.
+    """Best SequenceMatcher ratio of the quote against any passage window
+    of +/-15% its length. Returns (ratio, start, end) in the normalised
+    passage's coordinates; (0.0, -1, -1) if nothing usable.
+
+    A window scoring >= NEAR_MATCH_THRESHOLD shares nearly all of the
+    quote in order, so it must contain one of the quote's long matching
+    runs. Only windows aligned to those runs are scored, and quick_ratio()
+    (an upper bound) skips hopeless ones -- a full sliding scan took ~30 s
+    on a 1.5k-char clause for a single fabricated quote.
     """
     qlen = len(normalized_quote)
     plen = len(normalized_passage)
@@ -54,24 +82,35 @@ def _find_best_span(normalized_quote: str, normalized_passage: str) -> tuple[flo
         ratio = difflib.SequenceMatcher(None, normalized_quote, normalized_passage).ratio()
         return (ratio, 0, plen)
 
-    best_ratio = 0.0
-    best_start = -1
-    # Window sizes within +/-15% of the quote length cover dropped/added
-    # punctuation and the occasional extra word without being so loose it
-    # matches unrelated text.
-    for span in range(max(1, int(qlen * 0.85)), int(qlen * 1.15) + 1):
-        if span > plen:
-            continue
-        for start in range(0, plen - span + 1):
-            window = normalized_passage[start:start + span]
-            ratio = difflib.SequenceMatcher(None, normalized_quote, window).ratio()
-            if ratio > best_ratio:
-                best_ratio = ratio
-                best_start = start
-                best_span = span
-    if best_start == -1:
+    blocks = difflib.SequenceMatcher(
+        None, normalized_quote, normalized_passage, autojunk=False
+    ).get_matching_blocks()
+    anchors = sorted((b for b in blocks if b.size >= _ANCHOR_MIN),
+                     key=lambda b: b.size, reverse=True)[:_MAX_ANCHORS]
+    if not anchors:
         return (0.0, -1, -1)
-    return (best_ratio, best_start, best_start + best_span)
+
+    lo_span, hi_span = max(1, int(qlen * 0.85)), int(qlen * 1.15)
+    slack = qlen - lo_span
+    best = (0.0, -1, -1)
+    seen: set[tuple[int, int]] = set()
+    sm = difflib.SequenceMatcher(None, autojunk=False)
+    sm.set_seq2(normalized_quote)
+    for a in anchors:
+        aligned = a.b - a.a          # passage index where the quote would start
+        for start in range(max(0, aligned - slack), min(plen - 1, aligned + slack) + 1):
+            for span in range(lo_span, hi_span + 1):
+                end = start + span
+                if end > plen or (start, end) in seen:
+                    continue
+                seen.add((start, end))
+                sm.set_seq1(normalized_passage[start:end])
+                if sm.real_quick_ratio() <= best[0] or sm.quick_ratio() <= best[0]:
+                    continue
+                ratio = sm.ratio()
+                if ratio > best[0]:
+                    best = (ratio, start, end)
+    return best
 
 
 NEAR_MATCH_THRESHOLD = 0.95
@@ -161,54 +200,33 @@ def _verify_finding(f: Finding, doc: Document) -> VerifyResult:
         return VerifyResult(ok=False, reason=f"passage {f.passage_id!r} not found")
 
     norm_quote = _normalize(f.quote)
-    norm_passage = _normalize(passage.text)
+    norm_passage, raw_index = _normalize_with_map(passage.text)
 
     if not norm_quote:
         return VerifyResult(ok=False, reason="empty quote")
 
+    # Numbers/dates are checked against the FULL cited passage, not just the
+    # model's quoted span: a model may quote a short fragment of a clause
+    # and still explain the clause around it faithfully (e.g. quoting
+    # "...Rs. 500 per day" while the explanation adds "after 5 days" from
+    # earlier in the same sentence). What must never happen is a number in
+    # plain_text that isn't anywhere in the passage -- on either path below.
+    numbers_ok, numbers_reason = _numbers_consistent(f.plain_text, passage.text)
+
     if norm_quote in norm_passage:
-        # Check numbers/dates against the FULL cited passage, not just the
-        # model's quoted span: a model is free to quote a short fragment of
-        # a clause and still explain the clause around it faithfully (e.g.
-        # quoting "...Rs. 500 per day" while the explanation adds "after 5
-        # days" from earlier in the same sentence). What must never happen
-        # is a number appearing in plain_text that isn't anywhere in the
-        # passage at all -- that's the actual distortion this guards against.
-        ok, reason = _numbers_consistent(f.plain_text, passage.text)
-        if ok:
+        if numbers_ok:
             return VerifyResult(ok=True)
-        return VerifyResult(ok=False, reason=reason)
+        return VerifyResult(ok=False, reason=numbers_reason)
 
     ratio, start, end = _find_best_span(norm_quote, norm_passage)
     if ratio >= NEAR_MATCH_THRESHOLD and start >= 0:
-        # Map the normalised span back to the real source text by re-finding
-        # the same normalised slice length against the original passage via
-        # a second normalisation pass is unsafe (offsets can drift), so we
-        # take the literal source text using the fraction of the passage the
-        # normalised span covers -- normalisation here never inserts or
-        # deletes words, only collapses whitespace/case/punctuation style,
-        # so proportional offsets are a safe approximation for a 4-5 GB
-        # on-device demo, and worst case we fall back to the quote itself.
-        repaired = _best_effort_repair(passage.text, norm_passage, start, end) or f.quote
+        if not numbers_ok:
+            # A repaired quote must not launder a distorted explanation.
+            return VerifyResult(ok=False, reason=f"near match, but {numbers_reason}")
+        repaired = passage.text[raw_index[start]:raw_index[end - 1] + 1].strip()
         return VerifyResult(ok=False, repaired_quote=repaired, reason="near match repaired")
 
     return VerifyResult(ok=False, reason="quote not found in passage")
-
-
-def _best_effort_repair(raw_passage: str, norm_passage: str, start: int, end: int) -> str | None:
-    """Best-effort mapping of a span in the normalised passage back to the
-    raw passage text, for use as the repaired quote. Falls back to None if
-    the lengths disagree too much to trust the proportional mapping (the
-    caller then keeps the model's original quote instead of guessing).
-    """
-    if not norm_passage:
-        return None
-    ratio_len = len(raw_passage) / len(norm_passage)
-    raw_start = max(0, int(start * ratio_len))
-    raw_end = min(len(raw_passage), int(end * ratio_len))
-    if raw_end <= raw_start:
-        return None
-    return raw_passage[raw_start:raw_end].strip()
 
 
 # -------------------------------------------------------------------- reply

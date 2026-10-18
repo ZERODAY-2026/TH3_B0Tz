@@ -222,3 +222,38 @@ def test_detect_conflicts_no_conflict_when_consistent():
     flagged = detect_conflicts([f1, f2])
     assert flagged == []
     assert "conflicting" not in f1.flags
+
+
+# ------------------------------------------------- review fixes (wording)
+
+def test_forbidden_filter_leaves_factual_validity_and_legal_words():
+    for text in (
+        "This agreement is valid for 11 months from the start date.",
+        "The deposit is legally refundable within 30 days.",
+        "Rent is legal tender payable monthly.",
+        "The Tenant shall serve a legal notice before vacating.",
+    ):
+        cleaned, hits = filter_forbidden_phrases(text)
+        assert hits == [] and cleaned == text, text
+
+
+def test_forbidden_filter_still_catches_verdicts():
+    for text in ("This clause is unenforceable.", "This penalty is valid.",
+                 "You should not sign this agreement.", "The non-compete is void."):
+        cleaned, hits = filter_forbidden_phrases(text)
+        assert hits, text
+        assert "[redacted]" in cleaned
+
+
+def test_classify_legal_as_adjective_is_a_document_question():
+    for q in ("What is the legal notice period?",
+              "Does the agreement mention legal fees?",
+              "What is the late fee?"):
+        assert classify_question(q) == "document_question", q
+
+
+def test_classify_more_verdict_framings():
+    for q in ("Is the late fee legal?", "Will this hold up in court?",
+              "Is this non-compete valid in India?", "Should I accept this offer?",
+              "Can I sue my landlord over this?"):
+        assert classify_question(q) == "verdict_request", q
