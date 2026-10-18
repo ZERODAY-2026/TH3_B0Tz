@@ -2,19 +2,19 @@
 
 **A private, fully on-device legal document triage agent.**
 
-LegalLens reads a rental, employment or service agreement **on your own machine**,
-explains clauses in plain language, and flags obligations, penalties, deadlines,
-termination terms and ambiguities. Every claim is tied to a quoted passage from
-the document, checked by code. When the document does not say something — or the
-question needs a lawyer — LegalLens says so instead of guessing. **Nothing you
-upload ever leaves your device.**
+LegalLens reads a rental or employment agreement **on your own machine**,
+explains its clauses in plain language, and flags obligations, rights,
+penalties, deadlines, termination terms and ambiguities. Every claim is tied to
+a quoted passage from the document and checked by code. When the document does
+not say something, or the question needs a lawyer, LegalLens says so instead of
+guessing. **Nothing you open ever leaves your device.**
 
 > LegalLens is for preliminary document understanding and issue spotting only.
 > It is **not a lawyer**, gives **no legal advice**, and never decides whether a
 > clause is valid, legal or enforceable.
 
 Built for **ZeroDay OSS Hacktoberfest 2026, IIIT Dharwad — PS2: Agentic AI,
-Private Legal Document Triage Agent**.
+Private Legal Document Triage Agent** by team TH3_B0Tz.
 
 ---
 
@@ -26,12 +26,15 @@ Private Legal Document Triage Agent**.
 4. [Run](#run)
 5. [Configuration](#configuration)
 6. [Privacy guarantees](#privacy-guarantees)
-7. [Testing](#testing)
-7. [Troubleshooting](#troubleshooting)
-8. [Project structure](#project-structure)
-9. [Implementation status](#implementation-status)
-10. [Limitations](#limitations)
-11. [Licence and attribution](#licence-and-attribution)
+7. [Results](#results)
+8. [Testing](#testing)
+9. [Troubleshooting](#troubleshooting)
+10. [Project structure](#project-structure)
+11. [Implementation status](#implementation-status)
+12. [Limitations](#limitations)
+13. [Main technical contribution](#main-technical-contribution)
+14. [Contributing](#contributing)
+15. [Licence and attribution](#licence-and-attribution)
 
 ---
 
@@ -41,23 +44,23 @@ Private Legal Document Triage Agent**.
 document (PDF / .txt)                     ON THE USER'S DEVICE ONLY
    │
    ▼
-1. INGEST        pypdf / pdfplumber → text + page map → clause-aware chunks
-   │             → passages with stable IDs (p3.c2) and char offsets
+1. INGEST        pypdf (+ pdfplumber fallback) → headers/footers stripped →
+   │             clause-aware chunks with stable IDs (p3.c2) and headings
    ▼
-2. INDEX         BM25 + local embeddings → local vector store
-   │
+2. ANALYSE       Gemma 4 E4B via llama-server on 127.0.0.1 — document text is
+   │             DATA inside delimiters, never instructions → JSON findings
    ▼
-3. ANALYSE       Gemma (edge-class, 127.0.0.1 only) — document text is DATA
-   │             inside delimiters, never instructions → JSON findings
+3. VERIFY        deterministic code, no model: quote ∈ cited passage?
+   │             numbers/dates in the explanation ⊆ quote?  fail → dropped or
+   │             marked "unverified"; the summary is checked sentence by sentence
    ▼
-4. VERIFY        deterministic code, no model: quote ∈ passage?
-   │             numbers/dates ⊆ quote?  fail → drop or mark "unverified"
+4. SAFETY        labels (stated / our reading / concern), ambiguity and
+   │             jurisdiction flags, verdict refusal in code, escalation notes,
+   │             forbidden-wording filter, severity ordering
    ▼
-5. SAFETY        labels, ambiguity/jurisdiction flags, "document is silent",
-   │             verdict refusal, escalation advice, fixed disclaimer
-   ▼
-6. UI            127.0.0.1 only: summary · findings · clause view with the
-                 source passage beside each explanation · Q&A
+5. ASK           hybrid retrieval (BM25 + MiniLM embeddings in a FAISS index,
+                 in memory) → top-3 clauses → Gemma → citations verified →
+                 cited answer, "the document doesn't say", or a refusal
 ```
 
 **The design rule: the model proposes, code disposes.** Gemma reads and explains;
@@ -67,30 +70,35 @@ never certifies its own output. Full detail in
 
 ## Key features
 
-- **Plain-language clause explanations** — short sentences, legal terms defined
-  in parentheses, numbers kept exactly as written.
-- **Evidence on every claim** — each finding carries a verbatim quote and a
-  passage ID; the verifier rejects any quote not found in the source.
-- **STATED vs INTERPRETATION vs CONCERN** — explicit separation of what the text
-  says from our reading of it.
-- **Honest silence** — questions the document cannot answer get "the document
-  does not appear to say anything about this", never an invented one.
-- **Verdict refusal** — "is this enforceable?" / "should I sign?" are declined
-  **in code, before the model is called**, with specific escalation advice.
-- **Prompt-injection defence** — document text is untrusted data; injected
-  instructions are flagged and ignored.
-- **Verifiable privacy** — runs with the network adapter off; connection
-  monitoring and a dependency audit prove nothing leaves the device
-  ([docs/ARCHITECTURE.md §Privacy](docs/ARCHITECTURE.md)).
+- **Plain-language clause explanations**: short sentences, legal terms defined
+  in brackets, numbers kept exactly as written.
+- **Evidence on every claim**: each finding carries a verbatim quote and a
+  clause ID; the verifier rejects any quote not found in the source and any
+  explanation whose numbers or dates differ from it.
+- **Stated vs our reading vs concern**: what the text says is kept apart from
+  interpretation.
+- **Honest silence**: a question the document cannot answer gets "the document
+  does not appear to say anything about this", never an invented answer.
+- **Verdict refusal**: "is this enforceable?" and "should I sign?" are declined
+  **in code, before the model is called**, with specific advice on what to ask a
+  lawyer.
+- **Most important first**: findings are ordered by a code-computed severity.
+- **Prompt-injection defence**: instructions hidden in a document are flagged
+  to the user and ignored.
+- **Robust input**: empty, damaged, password-protected and scanned files get a
+  clear message, never a crash.
+- **Verifiable privacy**: a network guard, connection monitoring, a canary leak
+  check and a dependency audit, with recorded evidence.
 
 ## Install
 
-**Prerequisites:** Python 3.11+, ~6 GB free RAM for the model, ~5 GB disk for
-weights.
+**Prerequisites:** Python 3.11+; llama.cpp (`llama-server`); about 6 GB of disk
+for the models. A GPU is optional: on an RTX 4060 (8 GB) the whole model runs on
+the GPU, and on a CPU it still works, only slower.
 
 ```bash
-git clone <repo-url>
-cd legallens
+git clone https://github.com/ZERODAY-2026/TH3_B0Tz.git
+cd TH3_B0Tz
 
 python -m venv .venv
 # Windows:  .venv\Scripts\activate
@@ -99,51 +107,55 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Model weights** (one-time, needs network — see
-[docs/MODEL_SETUP.md](docs/MODEL_SETUP.md) for the full procedure and licence
-steps):
+**Models** (one time, needs the network; full procedure, licences and SHA-256
+checks in [docs/MODEL_SETUP.md](docs/MODEL_SETUP.md)):
 
 ```bash
-mkdir models
-# Gemma 4 E4B, 4-bit GGUF (4.98 GB) — read the licence on the model card first
+# Gemma 4 E4B, 4-bit GGUF (4.98 GB)
 python -c "from huggingface_hub import hf_hub_download as d; d('unsloth/gemma-4-E4B-it-GGUF', 'gemma-4-E4B-it-Q4_K_M.gguf', local_dir='models')"
+# Embedding model for retrieval (91 MB), pinned to a commit
+python -c "from huggingface_hub import hf_hub_download as d; [d('sentence-transformers/all-MiniLM-L6-v2', f, revision='1110a243fdf4706b3f48f1d95db1a4f5529b4d41', local_dir='models/all-MiniLM-L6-v2') for f in ('onnx/model.onnx', 'tokenizer.json')]"
 ```
 
-After this step, **no network access is ever needed again**.
+After this step, **no network access is needed again**.
 
 ## Run
 
 ```bash
-# Terminal 1 — start the local model server (loopback only).
-# -ngl 99 puts every layer on the GPU (RTX 4060 8 GB: fits); drop it on CPU-only machines.
+# Terminal 1 — the local model server (loopback only).
+# -ngl 99 puts every layer on the GPU (RTX 4060: fits); drop it on CPU-only machines.
 llama-server -m models/gemma-4-E4B-it-Q4_K_M.gguf --host 127.0.0.1 --port 8080 -c 8192 -ngl 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}"
 
-# Terminal 2 — analysis pipeline smoke test (offline stubs, no server needed)
+# Terminal 2 — a real document, end to end (ingest → analyse → three questions)
+python smoke.py --file data/samples/rental_clear.pdf
+
+# Inspect how a file is split into clauses
+python -m legallens.ingest data/samples/employment_standard.txt
+
+# Offline demo with a scripted model (no server needed)
 python smoke.py
-
-# ...or with the real model:
-python smoke.py --real
-python smoke.py --file data/samples/rental_clear.pdf   # a real file, end to end
-
-# Tests (deterministic; no model or network required)
-pytest tests/ -q
 ```
 
-The UI (Gradio on `127.0.0.1`) lands with lane D — `python -m app`.
+On a CPU-only machine set `GEMMA_TIMEOUT=900`. The UI (Gradio on `127.0.0.1`,
+lane D) is in progress; the design mockup is in `app/mockup/`.
+
+**To reproduce the demonstration:** run the two terminals above on
+`data/samples/rental_clear.pdf`, then the privacy checks in
+[Privacy guarantees](#privacy-guarantees). The expected output is in
+[docs/examples/real_run_rental_clear.txt](docs/examples/real_run_rental_clear.txt).
 
 ## Configuration
 
-Settings come from environment variables, optionally loaded from a gitignored
-`.env` (see `.env.example`). Telemetry/network kill-switches are **set in code**
-at import (`legallens/config.py`), not just documented:
+Settings come from environment variables, optionally from a gitignored `.env`
+(copy [.env.example](.env.example)); real environment variables win. Kill-switches
+are **set in code** at import (`legallens/config.py`), not just documented.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `GEMMA_BASE_URL` | `http://127.0.0.1:8080` | Local llama-server / Ollama endpoint |
-| `GEMMA_TIMEOUT` | `120` | Seconds before a generation call fails |
-| `HF_HUB_OFFLINE` | `1` | Never touch the Hugging Face hub at runtime |
-| `TRANSFORMERS_OFFLINE` | `1` | Same for transformers |
-| `DO_NOT_TRACK` | `1` | Suppress third-party telemetry |
+| `GEMMA_BASE_URL` | `http://127.0.0.1:8080` | Local llama-server or Ollama. **Refused** unless it is 127.0.0.1 or localhost, since document text is sent there |
+| `GEMMA_TIMEOUT` | `120` | Seconds per model reply; use `900` on CPU |
+| `LEGALLENS_EMBED_MODEL_DIR` | `models/all-MiniLM-L6-v2` | Embedding model; without it retrieval uses BM25 alone |
+| `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE`, `HF_HUB_DISABLE_TELEMETRY`, `DO_NOT_TRACK` | `1` | Never touch the Hugging Face hub or send telemetry at run time |
 
 ## Privacy guarantees
 
@@ -153,99 +165,129 @@ Three independent layers, all scripted in `privacy/` and explained in
 | Layer | Tool | Status |
 |---|---|---|
 | 1. **Cannot connect**: full run with the machine offline | `privacy/run_offline.ps1` (Windows, Airplane mode) / `run_offline.sh` (Linux network namespace) | To record on the demo laptop |
-| 2. **Does not try**: every connection attempt watched during a full run | `privacy/monitor.ps1` / `monitor.sh` + in-process audit-hook guard (`privacy/netguard.py`) | **PASS**: 0 non-loopback connections, canary found in no file ([evidence](docs/examples/privacy/run-monitored/)) |
-| 3. **Has no code that connects**: source audit of our code and every runtime dependency | `privacy/audit_deps.py` | **Clean**: only `llm.py` talks to the local model ([report](docs/examples/privacy/dependency_audit.md)) |
+| 2. **Does not try**: every connection attempt watched during a full run (ingest, analysis, retrieval, three questions) | `privacy/monitor.ps1` / `monitor.sh` + in-process audit-hook guard (`privacy/netguard.py`) | **PASS**: 12 attempts, all to 127.0.0.1:8080; 0 non-loopback; canary text found in no file ([evidence](docs/examples/privacy/run-monitored/)) |
+| 3. **Has no code that connects**: audit of our code and every runtime dependency, marking code actually loaded in a real session | `privacy/audit_deps.py` | **Clean**: only `llm.py` talks to the local model; 4 dormant numpy hits ([report](docs/examples/privacy/dependency_audit.md)) |
 
 The only run-time network traffic is LegalLens → `127.0.0.1:8080` (the local
-model). Logs carry timings and counts only, never document text. Session data
-goes in **one** folder with a "clear session" control once retrieval and the UI
-land.
+model). Embeddings and the retrieval index stay in memory. Logs carry timings
+and counts only, never document text.
+
+```bash
+python privacy/audit_deps.py --out docs/examples/privacy/dependency_audit.md
+powershell -ExecutionPolicy Bypass -File privacy\monitor.ps1 -ServerLog <llama-server log>
+powershell -ExecutionPolicy Bypass -File privacy\run_offline.ps1 -ServerLog <llama-server log>   # Airplane mode on
+```
+
+## Results
+
+Measured on our own synthetic documents; full evaluation on unseen documents is
+still to come (see [Implementation status](#implementation-status)).
+
+| What | Result | Evidence |
+|---|---|---|
+| Findings on `rental_clear.pdf` (17 clauses), real Gemma | 11 findings, **11/11 passed quote and number verification**; the vague "amounts the Landlord considers reasonable" clause flagged | [real_run_rental_clear.txt](docs/examples/real_run_rental_clear.txt) |
+| Questions on the same file | answerable question cited correctly; "Can I keep a pet?" → *not in the document*; "Is the late fee enforceable?" → refused with escalation | same |
+| Retrieval, 15 handwritten questions over both sample contracts | right clause in the **top 3 for 15/15**, at rank 1 for 13/15 | `tests/test_retrieve.py` |
+| Malformed input (empty, damaged, password-protected, scanned) | 4/4 give one clear message, no crash | `tests/test_ingest.py` |
+| Privacy, monitored run | PASS (see above) | [run-monitored/](docs/examples/privacy/run-monitored/) |
+| Speed, dev laptop (CPU only, ~5 tok/s) | full analysis 110–265 s; ~15–30 s per question; retrieval ~4 ms | [MODEL_SETUP.md §5](docs/MODEL_SETUP.md) |
+| Speed, demo laptop (RTX 4060, 8 GB) | to measure | — |
 
 ## Testing
 
 ```bash
-pytest tests/ -q        # deterministic unit + contract tests (no model needed)
-python bench/run.py     # eval: citation accuracy, verifier rate, silence/refusal (lane D)
+pytest tests/ -q        # 137 deterministic tests: no model, GPU or network needed
 ```
 
-Current state: **136 tests passing** (CI runs them on Ubuntu and Windows, Python 3.11 and 3.13) — LLM client, analysis pipeline, grounding
-verifier, safety layer, injection defence and ingestion (clause chunking,
-header/footer stripping, malformed files).
+CI runs the tests, the offline smoke demo and the dependency audit on Ubuntu and
+Windows with Python 3.11 and 3.13 (`.github/workflows/ci.yml`). Coverage:
+LLM client and retries, analysis pipeline and failure handling, grounding
+verifier, safety layer, injection defence, severity ordering, ingestion
+(clause chunking, header/footer stripping, malformed files), hybrid retrieval
+(with and without the embedding model), and the privacy guard and audit.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| `health_check()` false / connection refused | `llama-server` not running or wrong port — check `GEMMA_BASE_URL` |
-| Model replies are garbage / ignore the prompt | You are likely on a raw `/completion` endpoint; the client uses `/v1/chat/completions` so the Gemma chat template is applied |
-| `no valid JSON after 3 attempts` | Reduce prompt size (top-3 passages), lower temperature to 0.0, or check quantisation quality |
-| RAM exhaustion | Drop to E2B or Q3_K_S quantisation; reduce context to 4096 (fallback ladder in [docs/MODEL_SETUP.md](docs/MODEL_SETUP.md)) |
-| PDF returns no text | The PDF is a scan — out of scope; LegalLens reports "no extractable text" honestly |
-| Slow Q&A (>30 s) | Retrieval keeps prompts short — confirm top-3 is wired; shorten the system prompt |
+| `LLMError: local model ... failed` | `llama-server` isn't running on the configured port, or the reply took longer than `GEMMA_TIMEOUT` (raise it on CPU) |
+| Empty answers from the model | Gemma 4 is "thinking": start `llama-server` with `--jinja --chat-template-kwargs '{"enable_thinking":false}'` (the client also sends this per request) |
+| `GEMMA_BASE_URL must point at this machine` | By design: document text may only go to 127.0.0.1/localhost |
+| "This PDF looks like a scanned image" | The PDF has no text layer; export the original as text or open a .txt copy (no OCR) |
+| "Part of this document could not be analysed" | The model returned invalid output for some clauses; results are marked incomplete rather than guessed. Retry, or use a higher-quality quantisation |
+| Paraphrased questions find the wrong clause | The embedding model is missing, so retrieval uses BM25 alone; download it (see Install) |
+| Out of memory | Drop to Q3_K_S or E2B, or reduce `-c` to 4096 ([fallback ladder](docs/MODEL_SETUP.md)) |
+| `winget` llama.cpp hangs at start-up | That build uses Vulkan; on NVIDIA GPUs use the CUDA release build |
 
 ## Project structure
 
 ```
 .
-├── README.md                   # this file
-├── PLAN_PS2.md                 # 12-hour build plan (team lanes, checkpoints)
-├── requirements.txt            # pinned dependencies
+├── README.md, CONTRIBUTING.md, LICENSE, .env.example, requirements.txt
+├── PLAN_PS2.md                 # build plan: lanes, checkpoints, scoring map
+├── smoke.py                    # end-to-end demo (scripted or real model, any file)
 ├── legallens/
-│   ├── types.py                # shared dataclasses (H0 contracts)
-│   ├── config.py               # kill-switches, LLM settings
-│   ├── llm.py                  # local Gemma client, JSON mode, retries
-│   ├── analyze.py              # analyze(), ask(), chunking, summary
+│   ├── types.py                # shared dataclasses (the contract between lanes)
+│   ├── config.py               # .env loading, kill-switches, loopback-only model URL
+│   ├── llm.py                  # local Gemma client: JSON mode, retries, clear errors
+│   ├── analyze.py              # analyze(), ask(): extract → verify → safety → summary
 │   ├── prompts/                # extract / explain / summarize / qa
-│   ├── ingest.py               # (B) parsing, chunking, passage IDs      [landed]
-│   ├── retrieve.py             # (B) BM25 + MiniLM (ONNX) + FAISS, in memory [landed]
-│   ├── verify.py               # (C) quote/number verifier               [landed]
-│   ├── safety.py               # (C) labels, refusal, escalation         [landed]
-│   ├── injection.py            # (C) instruction-text pre-scan           [landed]
-│   └── priority.py             # (C) severity score + ordering (PLAN 5.4) [landed]
-├── privacy/                    # (B) offline run, monitor, audit, threat model [landed]
-├── app/                        # (D) UI, 127.0.0.1 only                  [pending]
-├── bench/                      # (D) eval + speed/memory scripts         [pending]
-├── tests/                      # unit + contract tests                   [landed]
-├── data/samples/               # synthetic documents we wrote            [started]
+│   ├── ingest.py               # PDF/.txt → clause passages with stable IDs
+│   ├── retrieve.py             # BM25 + MiniLM (ONNX) + FAISS, in memory
+│   ├── verify.py               # quote, number and date verification
+│   ├── safety.py               # labels, flags, refusal, escalation, wording filter
+│   ├── injection.py            # instruction-text pre-scan
+│   └── priority.py             # severity score and ordering
+├── privacy/                    # network guard, monitors, offline runs, audit, threat model
+├── data/samples/               # synthetic documents we wrote + malformed fixtures
+├── tests/                      # 137 deterministic tests
+├── app/mockup/                 # UI design mockup (Gradio app: lane D, in progress)
 └── docs/
     ├── ARCHITECTURE.md         # design, data flow, privacy architecture
-    ├── MODEL_SETUP.md          # weights, licence, variant, benchmarks
+    ├── MODEL_SETUP.md          # models, licences, SHA-256s, GPU/CPU set-up, benchmarks
     ├── DATASETS.md             # sample sources and licences
-    ├── API.md                  # module reference + H0 contracts
-    └── EVALUATOR_BRIEF.md      # demo/Q&A defense notes
+    ├── API.md                  # module reference
+    ├── EVALUATOR_BRIEF.md      # pitch and judge Q&A
+    └── examples/               # real-run log, safety examples, privacy evidence
 ```
 
 ## Implementation status
 
 | Lane | Scope | Status |
 |---|---|---|
-| **A** — Gemma + analysis pipeline | `llm.py`, `prompts/`, `analyze.py` | **Landed** — 20 tests, offline smoke demo |
-| **B** — ingest, retrieve, privacy | `ingest.py`, `retrieve.py`, `privacy/` | **Landed**: `ingest.py` (PDF + .txt), `retrieve.py` (hybrid BM25 + embeddings, 15/15 handwritten questions in the top 3), `privacy/` (monitored run PASS; offline run to record on the demo laptop) |
-| **C** — grounding + safety | `verify.py`, `safety.py`, `injection.py` | **Landed** — 58 tests (verify 20, safety 27, injection 7, pipeline integration 4) |
-| **D** — UI, bench, docs, demo | `app/`, `bench/`, samples | Pending |
-
-`analyze.py` auto-swaps to B's and C's real modules the moment they are
-importable — no pipeline changes needed. With lane C landed, `analyze()` and
-`ask()` now run real quote/number verification, label downgrade,
-ambiguity/jurisdiction flagging and the injection pre-scan, and `ask()`
-retrieves clauses with lane B's hybrid retriever. No stubs remain in the
-pipeline. Full suite: 136 tests passing
-(`pytest tests/ -q`).
+| **A**: Gemma + analysis | `llm.py`, `prompts/`, `analyze.py` | **Done**: real-model runs verified; graceful handling of bad JSON, timeouts and a dead server |
+| **B**: ingest, retrieval, privacy | `ingest.py`, `retrieve.py`, `privacy/` | **Done**; offline privacy run still to record on the demo laptop |
+| **C**: grounding + safety | `verify.py`, `safety.py`, `injection.py`, `priority.py` | **Done** |
+| **D**: UI, evaluation, demo | `app/`, `bench/`, samples, video | **In progress**: UI design agreed (`app/mockup/`); Gradio app, `bench/` evaluation, more sample documents and the demo video to come |
 
 ## Limitations
 
-Stated honestly (criterion C7):
+Stated honestly:
 
-1. **English only**; text-based PDF and `.txt`; no OCR for scans (detected and
+1. **English only**; text-based PDF and `.txt`; no OCR (scans are detected and
    reported, never guessed).
-2. **Tested scope:** rental and employment agreements; service agreements if
-   time allowed.
-3. **Retrieval bounds Q&A:** a relevant clause ranked low yields a silent
-   answer, never a wrong one — a deliberate trade.
-4. **Privacy covers the software**, not a compromised OS or a malicious model
+2. **Tested scope:** rental and employment agreements, on documents we wrote.
+   Evaluation on unseen real-world templates is still to do.
+3. **Speed depends on hardware:** a full analysis takes minutes on a laptop CPU;
+   on an RTX 4060 it should take well under a minute (to be measured).
+4. **Retrieval bounds Q&A:** if the relevant clause is not in the top three, the
+   answer is "the document doesn't say", never a guess. That is a deliberate trade.
+5. **Severity is a fixed formula:** a mutual notice clause can rank as
+   "critical"; the weights are a team decision still under review.
+6. **Privacy covers the software**, not a compromised OS or a malicious model
    file (scope in the threat model).
-5. **No legal conclusions, ever** — validity, enforceability and "should I
-   sign" are refused and escalated to a qualified professional.
+7. **No legal conclusions, ever:** validity, enforceability and "should I sign"
+   are refused and escalated to a qualified professional.
+
+## Main technical contribution
+
+A reusable **grounding layer for on-device legal assistants**: clause-aware
+passage IDs; a deterministic quote, number and date verifier applied to
+findings, answers and summaries alike; refusal enforced in code before the
+model runs; and a reproducible three-layer privacy proof with an in-process
+network guard and canary leak check. Together they show a small edge model can
+be trusted on legal text, because code, not the model, decides what reaches the
+user.
 
 ## Contributing
 
@@ -255,7 +297,8 @@ check for new dependencies and how to add a document type.
 ## Licence and attribution
 
 - Project code: **MIT** (see [LICENSE](LICENSE)).
-- Model: Gemma — licence per its official model card; see
-  [docs/MODEL_SETUP.md](docs/MODEL_SETUP.md).
-- Sample documents: written by the team, safe to redistribute.
+- Gemma model: licence per its official model card; the all-MiniLM-L6-v2
+  embedding model is Apache-2.0. See [docs/MODEL_SETUP.md](docs/MODEL_SETUP.md).
+- Sample documents: written by the team, safe to redistribute
+  ([docs/DATASETS.md](docs/DATASETS.md)).
 - No user documents, credentials or model weights are committed.

@@ -162,11 +162,11 @@ children.push(p([r("LegalLens reads a rental or employment agreement "), b("enti
 children.push(p([r("Design rule: "), b("the model proposes, code disposes."), r(" A local Gemma model drafts findings as JSON. Deterministic code verifies every quote, number and date, refuses verdict questions before the model is called, and keeps all data on the device.")]));
 children.push(table([
   ["Item", "Choice"],
-  ["Model", "Gemma 4 E4B (edge-class), Q4_K_M 4-bit GGUF, 4.98 GB, Apache-2.0; fallback E2B"],
-  ["Runtime", "llama.cpp llama-server on 127.0.0.1 (loopback only), 8k context"],
-  ["Retrieval", "BM25 + local MiniLM-class embeddings, FAISS index on disk"],
-  ["UI", "Gradio on 127.0.0.1, analytics off, no CDN"],
-  ["Stack", "Python 3.11+, pinned dependencies, MIT licence"],
+  ["Model", "Gemma 4 E4B (edge-class), Q4_K_M 4-bit GGUF, 4.98 GB (licence per the official model card); fallback E2B"],
+  ["Runtime", "llama.cpp llama-server on 127.0.0.1 (loopback only), 8k context; every layer on the demo laptop's RTX 4060 (8 GB)"],
+  ["Retrieval", "BM25 + all-MiniLM-L6-v2 (ONNX, no PyTorch) in a FAISS index, in memory only"],
+  ["UI", "Gradio on 127.0.0.1, analytics off, no CDN (design agreed, build in progress)"],
+  ["Stack", "Python 3.11+, pinned dependencies, MIT licence, 137 tests in CI (Ubuntu + Windows)"],
   ["Scope", "English; text PDF and .txt; rental and employment agreements"],
 ], [2400, W - 2400]));
 
@@ -211,41 +211,41 @@ children.push(bullet([b("Prompt injection: "), r("document text is untrusted dat
 
 // 6. Privacy
 children.push(h1("6  Privacy and Proof"));
-children.push(p("Nothing private leaves the device: not the file, text, chunks, embeddings, summaries, answers or questions. We prove this in three independent ways:"));
+children.push(p("Nothing private leaves the device: not the file, text, chunks, embeddings, summaries, answers or questions. We prove this in three independent ways, with recorded evidence:"));
 children.push(table([
   ["Layer", "Test"],
-  ["1. Cannot connect", "Full analysis with the network adapter off (Windows), or under docker --network none / unshare -rn"],
-  ["2. Does not try", "A connection monitor around a normal run records zero non-loopback connections"],
-  ["3. No code that connects", "A dependency audit for HTTP clients, telemetry and update checks, with every hit reviewed in THREAT_MODEL.md"],
+  ["1. Cannot connect", "run_offline.ps1 refuses to run while online, then repeats the monitored run in Airplane mode (Linux: network namespace). To record on the demo laptop."],
+  ["2. Does not try", "PASS. An in-process audit-hook guard plus an OS connection monitor during a full run with retrieval: 12 attempts, all to 127.0.0.1:8080, none outside; a canary string from the document was found in none of the 17 files touched."],
+  ["3. No code that connects", "Clean. The audit of our code and 43 runtime dependencies, profiled on a real session, finds network code only in our loopback model client; 4 dormant numpy hits are never called."],
 ], [2600, W - 2600]));
-children.push(p("In addition, telemetry kill-switches are set in code (HF_HUB_OFFLINE, TRANSFORMERS_OFFLINE, GRADIO_ANALYTICS_ENABLED=False, DO_NOT_TRACK). Logs hold timings and counts only, never document text. All session files live in one directory with a “clear session” control."));
+children.push(p("In addition, telemetry kill-switches are set in code (HF_HUB_OFFLINE, TRANSFORMERS_OFFLINE, HF_HUB_DISABLE_TELEMETRY, DO_NOT_TRACK), and the model URL is refused unless it points at this machine. Embeddings and the retrieval index stay in memory. Logs hold timings and counts only, never document text."));
 
 // 7. Gemma
 children.push(h1("7  Gemma Integration"));
-children.push(p("Gemma does the central task: clause extraction, plain-language explanation, labelling, summary and Q&A, all locally. It is called through the chat endpoint so the Gemma chat template is applied. E4B at 4-bit fits a 16 GB laptop alongside the UI and the embedder. Retrieval limits Q&A prompts to the top 3 passages, which keeps answers under about 30 s on CPU. The fallback ladder is Q3_K_S, then E2B, each re-measured. RAM, load time and tokens per second are reported with the exact hardware."));
+children.push(p("Gemma does the central task: clause extraction, plain-language explanation, labelling, summary and Q&A, all locally. It is called through the chat endpoint so the Gemma chat template is applied. On the demo laptop (RTX 4060, 8 GB VRAM, 24 GB RAM) the 4.98 GB E4B model runs entirely on the GPU. Gemma 4's reasoning mode is switched off so answers come back as plain JSON. Retrieval limits Q&A prompts to the top 3 passages. Measured on a CPU-only laptop (about 5 tokens per second): 11 of 11 findings on the sample rental passed verification, a full analysis took 110–265 s and each question 15–30 s. GPU numbers will be recorded on the demo laptop. The fallback ladder is Q3_K_S, then E2B."));
 
 // 8. Compliance
 children.push(h1("8  Mandatory Requirements"));
 children.push(table([
   ["ID", "Requirement", "Delivered by", "Status"],
-  ["L1", "Local ingestion (PDF / .txt)", "ingest.py", "Pending (B)"],
-  ["L2", "On-device extraction and interpretation", "ingest.py + analyze.py", "Analysis landed"],
-  ["L3", "Plain-language summaries and explanations", "analyze.py prompts", "Landed"],
-  ["L4", "Obligations, rights, deadlines, penalties, termination", "Finding kinds + coverage", "Landed"],
-  ["L5", "Answers backed by identifiable passages", "Passage IDs + verify.py", "Partial (fallback in analyze.py)"],
-  ["L6", "Stated vs interpretation", "Labels + downgrade rules", "Partial"],
-  ["L7", "Ambiguity, missing evidence, jurisdiction", "Flags + silence logic", "Silence landed"],
-  ["L8", "Refuse verdicts, recommend a lawyer", "Classifier + escalation", "Refusal landed"],
-  ["L9", "Demonstrable privacy", "privacy/ three-layer proof", "Pending (B)"],
-  ["L10", "Meaningful Gemma use, reproducible OSS", "llm.py, docs, pinned deps", "Landed; LICENSE pending"],
+  ["L1", "Local ingestion (PDF / .txt)", "ingest.py", "Done"],
+  ["L2", "On-device extraction and interpretation", "ingest.py + analyze.py", "Done"],
+  ["L3", "Plain-language summaries and explanations", "analyze.py prompts", "Done"],
+  ["L4", "Obligations, rights, deadlines, penalties, termination", "Finding kinds + coverage", "Done"],
+  ["L5", "Answers backed by identifiable passages", "Clause IDs + verify.py + retrieve.py", "Done"],
+  ["L6", "Stated vs interpretation", "Labels + downgrade rules", "Done"],
+  ["L7", "Ambiguity, missing evidence, jurisdiction", "Flags + silence logic", "Done"],
+  ["L8", "Refuse verdicts, recommend a lawyer", "Classifier + escalation", "Done"],
+  ["L9", "Demonstrable privacy", "privacy/ three-layer proof", "Layers 2–3 recorded; offline run on demo laptop"],
+  ["L10", "Meaningful Gemma use, reproducible OSS", "llm.py, MIT licence, pinned deps, CI", "Done"],
 ], [600, 3500, 2900, W - 7000]));
-children.push(p("Gates G1–G5 (public repo and licence, no paid services or secrets, a real system, datasets disclosed) and L1–L4 (local Gemma, nothing leaves the device, no fabrication, not legal advice) are designed in from the start, because a failed gate means the team is not ranked."));
+children.push(p("Gates G1–G5 (public repo and licence, no paid services or secrets, a real system, datasets disclosed) and L1–L4 (local Gemma, nothing leaves the device, no fabrication, not legal advice) are all met in the repository today. The user interface is still being built."));
 
 // 9. Evaluation
 children.push(h1("9  Evaluation Plan"));
 children.push(bullet([b("Samples we write: "), r("clear and vague rentals, standard and conflicting employment contracts, an injected document, a complex layout and malformed files. One held-out document and 1–2 public templates are never used for tuning.")]));
 children.push(bullet([b("Metrics: "), r("quote-verification pass rate, citation accuracy, human-scored meaning accuracy (X/10 clauses), silence and refusal correctness, injection results, latency and peak RAM.")]));
-children.push(bullet([b("Today: "), r("20/20 deterministic tests pass, covering JSON handling, retries, analysis shapes, injection containment, refusal, the silent path and type contracts. An offline smoke demo runs without the model.")]));
+children.push(bullet([b("Today: "), r("137 deterministic tests pass in CI. A real Gemma run on the sample rental produced 11 findings, all 11 verified, with correct silent and refusal answers. Retrieval finds the right clause in the top 3 for 15 of 15 handwritten questions. Malformed files (empty, damaged, password-protected, scanned) give one clear message each.")]));
 
 // 10. Team and plan
 children.push(h1("10  Team and Timeline"));
