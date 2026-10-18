@@ -1,0 +1,108 @@
+{
+  "document": {
+    "source_name": "privacy_canary.txt",
+    "passages": 6,
+    "warnings": []
+  },
+  "analysis": {
+    "summary": "The Tenant must pay a security deposit of Rs. 37,500 when signing [p1.c4]. Monthly rent is Rs. 12,500, due by the 7th of every month [p1.c2]. If rent is late by more than 3 days, a late fee of Rs. 300 per day applies [p1.c3]. Either party can end the agreement by giving 30 days written notice [p1.c5].",
+    "summary_citations": [
+      "p1.c4",
+      "p1.c2",
+      "p1.c3",
+      "p1.c5"
+    ],
+    "findings": [
+      {
+        "id": "87aded56",
+        "kind": "penalty",
+        "party": "Ms. Zephyra QZX-CANARY-41907",
+        "plain_text": "If the rent is not paid within 3 days of the due date, the Tenant must pay a late fee of Rs. 300 per day.",
+        "quote": "If rent is not paid within 3 days of the due date, the Tenant shall pay a late fee of Rs. 300 per day.",
+        "passage_id": "p1.c3",
+        "label": "STATED",
+        "confidence": "high",
+        "flags": [],
+        "escalation_note": null
+      },
+      {
+        "id": "94ce088a",
+        "kind": "termination",
+        "party": "Either party",
+        "plain_text": "Either party can end this agreement by providing 30 days written notice.",
+        "quote": "Either party may end this agreement by giving 30 days written notice.",
+        "passage_id": "p1.c5",
+        "label": "STATED",
+        "confidence": "high",
+        "flags": [],
+        "escalation_note": null
+      },
+      {
+        "id": "5ed03706",
+        "kind": "obligation",
+        "party": "Ms. Zephyra QZX-CANARY-41907",
+        "plain_text": "The Tenant must pay the monthly rent of Rs. 12,500 by the 7th of every month.",
+        "quote": "The monthly rent shall be Rs. 12,500, payable on or before the 7th of each month.",
+        "passage_id": "p1.c2",
+        "label": "STATED",
+        "confidence": "high",
+        "flags": [],
+        "escalation_note": null
+      },
+      {
+        "id": "3cc2e5e7",
+        "kind": "obligation",
+        "party": "Ms. Zephyra QZX-CANARY-41907",
+        "plain_text": "The Tenant must pay a security deposit of Rs. 37,500 when signing.",
+        "quote": "The Tenant shall pay a security deposit of Rs. 37,500 at signing.",
+        "passage_id": "p1.c4",
+        "label": "STATED",
+        "confidence": "high",
+        "flags": [
+          "jurisdiction_dependent"
+        ],
+        "escalation_note": "This may depend on where you are; local rules are not addressed here. Consider checking local tenancy/employment rules or asking a qualified professional."
+      }
+    ],
+    "coverage": {
+      "found": [
+        "obligation",
+        "penalty",
+        "termination"
+      ],
+      "not_found": [
+        "deadline",
+        "right"
+      ],
+      "additional": []
+    }
+  },
+  "replies": {
+    "What is the notice period?": {
+      "text": "Either party may end this agreement by giving 30 days written notice.",
+      "citations": [
+        {
+          "passage_id": "p1.c5",
+          "quote": "Either party may end this agreement by giving 30 days written notice."
+        }
+      ],
+      "silent": false,
+      "refused": false,
+      "escalation_note": null
+    },
+    "Can I keep a pet?": {
+      "text": "The document does not appear to say anything about this.",
+      "citations": [],
+      "silent": true,
+      "refused": false,
+      "escalation_note": null
+    },
+    "Is the late fee enforceable?": {
+      "text": "I cannot determine that. This depends on your jurisdiction and specific circumstances. Consider asking a qualified legal professional about late fee, and bring the exact clause text with you.",
+      "citations": [],
+      "silent": false,
+      "refused": true,
+      "escalation_note": "classified as verdict_request; verdicts are out of scope"
+    }
+  }
+}

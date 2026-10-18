@@ -10,8 +10,8 @@
 | Choice | Value |
 |---|---|
 | **Family / variant** | Gemma 4 **E4B** (edge-class) |
-| **Quantisation** | Q4_K_M 4-bit GGUF (~4–5 GB) |
-| **Runtime** | llama.cpp `llama-server` on `127.0.0.1:8080` |
+| **Quantisation** | Q4_K_M 4-bit GGUF (4.98 GB) |
+| **Runtime** | llama.cpp `llama-server` on `127.0.0.1:8080` (CUDA, all layers on GPU on the demo laptop) |
 | **Context** | 8192 tokens |
 | **Fallbacks** | Q3_K_S → E2B (same family), each re-measured |
 
@@ -42,70 +42,92 @@ The decision is locked at **H1 after measurement**, not before.
 
 ## 3. Download (setup time only)
 
+The GGUF we use is `gemma-4-E4B-it-Q4_K_M.gguf` from the public, ungated
+repository `unsloth/gemma-4-E4B-it-GGUF` (4,977,171,584 bytes).
+
 ```bash
 mkdir -p models
-# log in once (network):
-huggingface-cli login
-# pull the Q4_K_M GGUF (~4–5 GB):
-huggingface-cli download <org>/<gemma-4-e4b-gguf-repo> \
-    --include "*Q4_K_M*" --local-dir models
+python -c "from huggingface_hub import hf_hub_download as d; d('unsloth/gemma-4-E4B-it-GGUF', 'gemma-4-E4B-it-Q4_K_M.gguf', local_dir='models')"
 ```
 
-Ollama alternative (same weights, different packaging):
+Expected SHA-256: `85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87`
+(check with `certutil -hashfile models\gemma-4-E4B-it-Q4_K_M.gguf SHA256` on
+Windows or `sha256sum` elsewhere). The Python call is used instead of the
+`hf`/`huggingface-cli` command because that CLI fails to start on some
+installs (a `typer` version clash); the library itself is fine.
+
+`models/` is gitignored — weights are **never** committed.
+
+### Embedding model for retrieval (setup time only, ~91 MB)
+
+`legallens/retrieve.py` ranks clauses with BM25 plus `sentence-transformers/all-MiniLM-L6-v2`
+(Apache-2.0), run as ONNX by onnxruntime on the CPU — no PyTorch. Pinned to an
+exact commit:
 
 ```bash
-ollama pull <gemma-4-e4b-tag>          # serves on 127.0.0.1:11434
-# then: GEMMA_BASE_URL=http://127.0.0.1:11434
+python -c "from huggingface_hub import hf_hub_download as d; [d('sentence-transformers/all-MiniLM-L6-v2', f, revision='1110a243fdf4706b3f48f1d95db1a4f5529b4d41', local_dir='models/all-MiniLM-L6-v2') for f in ('onnx/model.onnx', 'tokenizer.json')]"
 ```
 
-`models/` is gitignored from the first commit — weights are **never** committed.
+| File | Size | SHA-256 |
+|---|---|---|
+| `onnx/model.onnx` | 90,405,214 bytes | `6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452` |
+| `tokenizer.json` | 466,247 bytes | `be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037` |
+
+Without these files retrieval still works, on BM25 alone (exact words only, so
+paraphrased questions match less well). Set `LEGALLENS_EMBED_MODEL_DIR` to use
+another folder.
 
 ## 4. Run
 
+### Demo laptop: RTX 4060 (8 GB VRAM), 24 GB RAM — recommended
+
+E4B Q4_K_M (~5 GB) fits entirely in 8 GB of VRAM with an 8k context, so
+offload every layer to the GPU. Use the **CUDA** build of llama.cpp
+(`llama-<build>-bin-win-cuda-13.4-x64.zip` plus
+`cudart-llama-bin-win-cuda-13.4-x64.zip` from the llama.cpp GitHub releases,
+unzipped into one folder; NVIDIA driver 580+).
+
 ```bash
-llama-server -m models/<gemma-4-e4b-Q4_K_M>.gguf \
-    --host 127.0.0.1 --port 8080 -c 8192
+llama-server -m models/gemma-4-E4B-it-Q4_K_M.gguf \
+    --host 127.0.0.1 --port 8080 -c 8192 -ngl 99 --jinja \
+    --chat-template-kwargs '{"enable_thinking":false}'
 ```
+
+If quality matters more than speed, `Q5_K_M` (~5.5 GB) also fits fully on the
+4060. Record the measured numbers in §5.
+
+### Any machine without a suitable GPU (CPU only)
+
+Same command without `-ngl 99`. On the development laptop (no usable GPU) this
+gives about 5 tok/s: a full analysis takes ~4.5 minutes, so raise the client
+timeout with `GEMMA_TIMEOUT=900`.
 
 Notes:
 
 - `--host 127.0.0.1` is mandatory — never `0.0.0.0`.
+- `--jinja` applies Gemma's own chat template. Gemma 4 "thinks" by default
+  and llama-server then returns an empty answer; `llm.py` already sends
+  `enable_thinking: false` per request, and the server flag makes it the
+  default for any other client too.
 - The client (`legallens/llm.py`) calls `/v1/chat/completions` so the Gemma
   chat template is applied. The raw `/completion` endpoint does **not** apply
   it and Gemma degrades badly without it — do not switch.
+- The Vulkan build that `winget install ggml.llamacpp` installs hung during
+  GPU detection on one of our laptops; use the CUDA build on NVIDIA GPUs.
 - Verify the server: `python -c "from legallens.llm import health_check; print(health_check())"`
   → `True`, with the network adapter disabled.
 
-## 5. H1 benchmark record (fill at H1, commit to `bench/results/`)
+## 5. Benchmark record
 
-`bench/results/h1_model_benchmarks.json`:
+| Machine | Backend | Prompt tok/s | Gen tok/s | Full analysis (rental_clear.pdf, 17 clauses) | Per question |
+|---|---|---|---|---|---|
+| Dev laptop, 12-thread CPU, GTX 1650 4 GB (not used) | llama.cpp b11680 CPU | ~38 | ~5.2 | 265 s | 20–26 s |
+| Demo laptop, RTX 4060 8 GB, 24 GB RAM | llama.cpp CUDA, `-ngl 99` | *to measure* | *to measure* | *to measure* | *to measure* |
 
-```json
-{
-  "model": "gemma-4-e4b-q4_k_m",
-  "weights_sha256": "<fill>",
-  "runtime": "llama-server <version>",
-  "context_window": 8192,
-  "ram_idle_gb": 0,
-  "ram_loaded_gb": 0,
-  "load_time_sec": 0,
-  "tokens_per_sec": 0,
-  "json_first_try_rate": 0.0,
-  "hardware": "CPU: ..., RAM: ... GB, GPU: ...",
-  "os": "..."
-}
-```
-
-Decision matrix (measured, then winner locked):
-
-| Option | RAM (GB) | tok/sec | JSON reliable? |
-|---|---|---|---|
-| llama.cpp E4B Q4_K_M | | | |
-| llama.cpp E4B Q3_K_S | | | |
-| llama.cpp E2B Q4_K_M | | | |
-| Ollama E4B | | | |
-
-**Winner:** ______ **Reason:** ______
+Run `python smoke.py --file data/samples/rental_clear.pdf` on the demo laptop
+and copy the timings it prints; read VRAM/RAM use from Task Manager while it
+runs. The dev-laptop run is in `docs/examples/real_run_rental_clear.txt`
+(11/11 findings verified).
 
 ## 6. Fallback ladder
 

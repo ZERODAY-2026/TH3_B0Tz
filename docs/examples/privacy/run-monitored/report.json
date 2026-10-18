@@ -1,0 +1,50 @@
+{
+  "when": "2026-10-18 18:18:39 +0530",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.13",
+  "document": "data/samples/privacy_canary.txt",
+  "canary": "QZX-CANARY-41907",
+  "guard_mode": "block",
+  "timings": {
+    "ingest_s": 0.0,
+    "analyze_s": 110.7,
+    "ask: What is the notice period?": 29.1,
+    "ask: Can I keep a pet?": 21.2,
+    "ask: Is the late fee enforceable?": 0.0
+  },
+  "findings": 4,
+  "network": {
+    "mode": "block",
+    "events_total": 12,
+    "loopback_events": 12,
+    "non_loopback_events": 0,
+    "non_loopback": [],
+    "distinct_targets": [
+      "127.0.0.1:8080",
+      "dns:127.0.0.1",
+      "http://127.0.0.1:8080/v1/chat/completions"
+    ]
+  },
+  "files_changed_during_run": 17,
+  "files_changed_sample": [
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\3dbc68e2-8522-4c85-958a-78fceb6f2ec1.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\639309e9-8ee1-47df-8584-efe2ee069dc9.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\ce901081-d388-41fd-860c-fb44357686fe.tmp",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\index",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\27\\bb8af8fd72e8f77b97d2a2b4daa11fbfa09eec",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\4e\\e28d26b3a9a3cfd45bc058b45a77a3f4da3009",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\63\\53ccdd6d813fdab8c4504196b5f252c92c0af4",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\71\\043ed9c0a3babc2b0b2d14d197dea91942d62e",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\83\\18853af66a03d1873727b448e3b8fea76efca3",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\91\\f692a06901c50431998478c1777ca207ff8e98",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\95\\16be3746b683e02cc50d7ffd6ab53dfaf776de",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\ae\\f6c35afe181779ee7cc819c82fb5dbf4e227ea",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\objects\\e0\\89fc2140b3461e33762ca38305e71fd7c20464",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\bash-edit-diff\\8956187196089734404-10335496206423575680-dbac4e2676e8fc62\\refs\\heads\\main",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\cache-break-state-0ae8947d-414e-4c3f-943c-7d5f56946282.json",
+    "C:\\Users\\ACER\\AppData\\Local\\Temp\\claude\\cache-break-state-22c22aeb-122c-47f4-90f1-362d78503e8d.json",
+    "E:\\oss hackathon\\README.md"
+  ],
+  "canary_found_outside_output_dir": [],
+  "verdict": "PASS"
+}

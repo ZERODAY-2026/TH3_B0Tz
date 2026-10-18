@@ -74,3 +74,24 @@ def test_generate_no_server_raises_clear_error():
 def test_config_reads_env(monkeypatch):
     monkeypatch.setenv("GEMMA_TIMEOUT", "900")
     assert LLMConfig.from_env().timeout == 900
+
+
+def test_config_refuses_non_loopback_model_url(monkeypatch):
+    monkeypatch.setenv("GEMMA_BASE_URL", "https://api.example.com")
+    with pytest.raises(ValueError, match="must point at this machine"):
+        LLMConfig.from_env()
+    for ok in ("http://127.0.0.1:8080", "http://localhost:11434", "http://[::1]:8080"):
+        monkeypatch.setenv("GEMMA_BASE_URL", ok)
+        assert LLMConfig.from_env().base_url == ok
+
+
+def test_dotenv_loads_without_overriding_real_env(tmp_path, monkeypatch):
+    from legallens.config import load_dotenv
+    env = tmp_path / ".env"
+    env.write_text("# comment\nGEMMA_TIMEOUT=777\nexport LL_TEST_KEY='abc'\n", encoding="utf-8")
+    monkeypatch.setenv("GEMMA_TIMEOUT", "55")
+    monkeypatch.delenv("LL_TEST_KEY", raising=False)
+    load_dotenv(env)
+    import os
+    assert os.environ["GEMMA_TIMEOUT"] == "55" and os.environ["LL_TEST_KEY"] == "abc"
+    monkeypatch.delenv("LL_TEST_KEY")

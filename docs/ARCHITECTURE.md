@@ -22,10 +22,10 @@
                        │  (p3.c2, page, heading, char offsets)                    │
                        │        │                                                 │
                        │        ▼                                                 │
-                       │  2. INDEX (B)                                            │
-                       │  BM25  +  local embeddings (MiniLM-class)                │
-                       │        │            │                                    │
-                       │        │            └──► local vector store (disk)       │
+                       │  2. INDEX (B) — for questions                            │
+                       │  BM25  +  all-MiniLM-L6-v2 (ONNX) in a FAISS index       │
+                       │        │            (in memory only, never on disk)      │
+                       │        │                                                 │
                        │        ▼                                                 │
                        │  3. ANALYSE (A)                                          │
                        │  Gemma E4B via llama-server on 127.0.0.1                 │
@@ -62,17 +62,24 @@ model is never asked to certify its own output.
 
 ## 2. Stage by stage
 
-### 2.1 Ingestion (lane B) — *pending; interface landed*
+### 2.1 Ingestion (lane B) — *landed (`legallens/ingest.py`)*
 
-- `pypdf` first, `pdfplumber` for layout-heavy pages; `.txt` directly.
-- Clause-aware chunking on numbered clauses (`4.`, `4.1`), headings and
-  `Article`/`Clause` markers.
+- `pypdf` first, `pdfplumber` for pages pypdf reads poorly; `.txt` directly
+  (form feed = page break; non-UTF-8 files read as Windows-1252 with a warning).
+- Running headers, page numbers and line-break hyphens are removed first, so a
+  footer never splits a clause.
+- Clause-aware chunking on numbered clauses (`4.`, `4.1`, `Clause 5:`,
+  `Article IV`) and capitalised headings. A heading-only line ("6. TERMINATION")
+  becomes the heading of the clauses under it. Unnumbered text falls back to
+  paragraph groups; clauses over 1,500 characters split at sentence ends
+  (`p3.c2`, `p3.c2.2`).
 - Every passage gets a **stable, human-readable ID** (`p3.c2`) plus page and
   character offsets — the anchor every later citation resolves against.
-- Warnings, never guesses: empty, corrupt, password-protected or scanned files
-  produce a clear message.
+- Warnings, never guesses: empty, damaged, password-protected, scanned,
+  oversized or unsupported files return no passages and one plain-language
+  warning, and `analyze()` then makes no model call (`tests/test_ingest.py`).
 
-### 2.2 Retrieval (lane B) — *pending; lexical stub in `analyze.py`*
+### 2.2 Retrieval (lane B) — *landed (`legallens/retrieve.py`)*
 
 Hybrid retrieval, both halves local:
 
@@ -80,16 +87,23 @@ Hybrid retrieval, both halves local:
 |---|---|---|
 | Matches | Exact words, rare-term weighted | Meaning (vector proximity) |
 | Wins on | "security deposit", "non-compete", "lock-in period" | "can I get my money back if I leave early?" |
-| Runtime cost | Pure math over word counts | ~100 MB local model, loaded from disk |
+| Runtime cost | Pure math over word counts | all-MiniLM-L6-v2 as ONNX (91 MB) on onnxruntime, no PyTorch |
 
 Rankings are merged (reciprocal-rank fusion) and the **top-3** passages go to
-the prompt. Two reasons for retrieval at all: the 8k context cannot hold a
+the prompt. A small lay-term glossary expands the BM25 query only ("rent a room
+to a friend" → *sublet*), and the index lives in memory, cached per document.
+Without the embedding model, retrieval runs on BM25 alone. Measured: the right
+clause is in the top 3 for 15/15 handwritten questions over both sample
+contracts (13/15 at rank 1); about 4 ms per query. Two reasons for retrieval at all: the 8k context cannot hold a
 30-page document, and small models quote less faithfully as context grows —
 retrieval protects both grounding and the ~30 s latency budget.
 
-**The silent path is retrieval-driven:** if the best merged score is below
-threshold, code returns "the document does not appear to say anything about
-this" — the model never sees the question.
+**The silent path is verification-driven:** when the answer's citations do
+not verify against the retrieved clauses, code replaces it with "the document
+does not appear to say anything about this". Retrieval also reports a relevance
+(cosine similarity) per clause. Unanswerable questions score low (about 0.2,
+against about 0.5 for answerable ones), which leaves room for a threshold that
+skips the model call entirely; that is not enabled yet.
 
 ### 2.3 Analysis (lane A) — *landed*
 
@@ -102,8 +116,11 @@ this" — the model never sees the question.
    the `[pX.cY]` tag, treat passage text as untrusted data.
 3. Output is parsed with a brace-scanning extractor (tolerates markdown fences
    and stray prose), then **schema-validated**; structural failures are fed
-   back and retried (max 2), after which the group is skipped and logged —
-   never patched up by guessing.
+   back and retried (max 2), after which the group is skipped and logged,
+   never patched up by guessing. Skipped clauses are listed in
+   `coverage["not_analysed"]` with a warning to the user. If the model stops
+   responding mid-document, the partial result is returned the same way; if it
+   cannot be reached at all, `LLMError` says so.
 4. Findings are de-duplicated across chunk groups (passage_id + kind).
 5. C's verifier runs on each finding: pass → keep; near-match → repair the
    quote and flag `quote_corrected`; fail → flag `unverified` (hidden from the
@@ -114,6 +131,8 @@ this" — the model never sees the question.
    not repaired** — the most claim-dense artifact on screen is never the
    unverified surface.
 7. A coverage report lists clause types found and **not** found.
+8. Findings are returned most severe first (`priority.py`, PLAN §5.4), with
+   unverified findings last.
 
 `ask(doc, question)`:
 
@@ -122,8 +141,9 @@ this" — the model never sees the question.
    deterministic refusal template — Gemma is never called.
 2. Otherwise top-3 passages are retrieved and the `qa` prompt runs.
 3. The reply's citations are verified; a failed verification collapses the
-   reply to the fixed silent text (§ 4.1 rule 4) — an answer with stripped
-   citations could still be ungrounded, so it is never shown.
+   reply to the fixed silent text. An answer with stripped citations could
+   still be ungrounded, so it is never shown. A malformed model reply becomes
+   "LegalLens could not produce a reliable answer" instead of a crash.
 
 ### 2.4 Verification (lane C) — *landed (`legallens/verify.py`)*
 
@@ -172,11 +192,13 @@ repair, Reply and Analysis verification).
 
 Tests: `tests/test_safety.py` (27 cases).
 
-### 2.6 UI (lane D) — *pending*
+### 2.6 UI (lane D) — *in progress; design in `app/mockup/`*
 
-Gradio bound to `127.0.0.1`, analytics off, no CDN or remote fonts. Layout
-rule: **the source passage is displayed beside every explanation** — evidence
-never lives a click away.
+Gradio bound to `127.0.0.1`, analytics off, system fonts, no CDN. Layout
+rule: **the source passage is displayed beside every explanation**, so evidence
+never lives a click away. The agreed design has four tabs (Overview with "before
+you sign" questions, Findings, Ask, For your lawyer) and an always-visible
+disclaimer.
 
 ---
 
@@ -210,22 +232,26 @@ injected instruction, and the warning is surfaced
 
 | Layer | Claim | Method |
 |---|---|---|
-| 1 | **Cannot connect** | Full pipeline run with networking disabled — adapter off / Airplane mode (Windows, captured with `Get-NetConnectionProfile`), container `--network none`, or WSL2 namespace. Loopback still works, so the run is unchanged. |
-| 2 | **Does not try** | Connection monitor (`ss` / `tcpdump` / `Get-NetTCPConnection`) around a normal run; expected result: zero non-loopback connections. Raw logs saved to `docs/examples/`. |
-| 3 | **Has no code that connects** | `privacy/audit_deps.py` greps code and installed packages for HTTP clients, update checks, telemetry; every hit reviewed and recorded in `THREAT_MODEL.md`. |
+| 1 | **Cannot connect** | `privacy/run_offline.ps1` refuses to start while the machine has an internet route, records the network state, then runs the monitored capture (Airplane mode). `run_offline.sh` runs llama-server and the pipeline in a Linux network namespace with only loopback. *To record on the demo laptop.* |
+| 2 | **Does not try** | `privacy/netguard.py` installs Python audit hooks that record (and in block mode refuse) every connect, sendto, DNS lookup and urllib request in the process; `monitor.ps1`/`monitor.sh` watch the OS connection table (or strace) for LegalLens and llama-server. A canary string from the test document is searched for in every file touched during the run. **Recorded: PASS**, 12 attempts all to 127.0.0.1:8080, canary in none of 17 files touched ([evidence](examples/privacy/run-monitored/)). |
+| 3 | **Has no code that connects** | `privacy/audit_deps.py` scans our code and the whole runtime dependency tree for network, DNS and telemetry code, and profiles a real session to separate code that is actually imported ("live") from code that never loads. **Result:** only `legallens/llm.py` (loopback model client); 4 live dependency hits, all numpy's optional URL loader, never called ([report](examples/privacy/dependency_audit.md)). |
 
 ### 4.2 Supporting controls
 
-- Model server and vector store bind to `127.0.0.1` or run in-process.
+- The model server binds to `127.0.0.1`; the retrieval index runs in-process,
+  in memory. `GEMMA_BASE_URL` is refused unless it points at this machine.
 - Weights and the embedding model are **setup-time downloads**, loaded from
   disk at runtime (`HF_HUB_OFFLINE=1` et al., set in code —
   `legallens/config.py`).
-- Session artifacts live in one documented directory with a "clear session"
-  control; a temp-file audit confirms nothing document-derived lands anywhere
-  else.
-- Logs hold timings, counts and error codes only — verified by grepping logs
-  for a distinctive phrase from a test document.
-- README separates **"Setup (needs network once)"** from **"Run (offline)"**.
+- Document-derived data (text, embeddings, findings) stays in memory;
+  `retrieve.clear_cache()` drops the indexes, and the UI's "clear session" will
+  call it. The canary check confirms nothing document-derived lands on disk.
+- Logs hold timings, counts and error codes only; the canary check also covers
+  the llama-server log.
+- README separates the one-time model download from running.
+
+Full detail, every network call and what we do not claim:
+[privacy/THREAT_MODEL.md](../privacy/THREAT_MODEL.md).
 
 ### 4.3 Threat model summary
 
@@ -254,8 +280,8 @@ VerifyResult: ok, reason, repaired_quote, pruned_summary
 
 Module boundaries (B's `ingest/retrieve`, C's `verify/safety`) are import
 boundaries in `analyze.py`: the real modules are picked up automatically the
-moment they exist; until then, clearly-flagged permissive stubs fill in so lane
-A is fully testable offline.
+moment they exist. All of them have landed; the fallbacks remain only so each
+lane's code stays testable on its own, and CI runs without model files.
 
 Full module reference: [API.md](API.md).
 
@@ -266,9 +292,10 @@ Full module reference: [API.md](API.md).
 | Budget | Target | Mechanism |
 |---|---|---|
 | Q&A latency | < ~30 s on the demo laptop | top-3 retrieval keeps prompts short; summary pre-cached at upload |
-| RAM | < 8 GB total | E4B 4-bit ≈ 4–5 GB weights + embeddings (~0.5 GB) + app |
+| Memory | fits 8 GB VRAM / 16 GB RAM | E4B 4-bit 4.98 GB weights, all layers on an RTX 4060; MiniLM 91 MB on CPU |
 | Throughput | one document at a time | per-chunk-group extraction, merged |
 
-Measured numbers (RAM loaded, load time, tok/sec, JSON parse rate) are
-committed to `bench/results/` at H1 and updated at H9 — see
-[MODEL_SETUP.md](MODEL_SETUP.md) for the fallback ladder.
+Measured so far (development laptop, CPU only, about 5 tok/s): full analysis
+110–265 s for 9–17 clauses, 15–30 s per question, retrieval about 4 ms per
+query. Demo-laptop (RTX 4060) numbers are to be recorded in
+[MODEL_SETUP.md](MODEL_SETUP.md) §5, which also has the fallback ladder.

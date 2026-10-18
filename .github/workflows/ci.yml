@@ -1,24 +1,40 @@
-﻿name: CI
+name: CI
+
+# Deterministic checks only: no model weights, no GPU, and the tests make no
+# network calls (the privacy tests use the audit-hook guard in a subprocess).
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.13"]
+    runs-on: ${ matrix.os }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install deps
+          python-version: ${ matrix.python }
+          cache: pip
+      - name: Install
         run: |
           pip install -r requirements.txt
           pip install ruff
       - name: Lint
-        run: |
-          ruff check . --select=E,F,W --ignore=E501,E402,E741,F401
-      - name: Deterministic tests
-        run: pytest tests/ -v --tb=short -x
+        run: ruff check . --select=E,F,W --ignore=E501,E402,E741,F401
+      - name: Byte-compile
+        run: python -m compileall -q legallens privacy tests smoke.py
+      - name: Tests
+        run: pytest tests/ -q
+      - name: Offline smoke demo (stub model)
+        run: python smoke.py
+      - name: Dependency network audit
+        run: python privacy/audit_deps.py

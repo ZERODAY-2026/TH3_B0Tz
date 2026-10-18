@@ -42,34 +42,40 @@ SafeOutput(item, disclaimer, blocked_phrases=[])   # return type of apply_safety
 
 Full document analysis. Pipeline: chunk passages to context → per-group Gemma
 extraction (JSON findings, schema-validated, retry max 2) → de-duplicate →
-verify each finding via lane C (stub until it lands: findings flagged
-`unverified_stub`) → summary from verified findings only, citations parsed →
-summary sentence check via lane C → coverage report.
+verify each finding (`verify.py`) → labels and flags (`safety.py`) → summary
+from verified findings only, citations parsed → summary sentence check →
+coverage report → findings ordered by severity (`priority.py`) → output
+wording filter.
 
 | Parameter | |
 |---|---|
-| `doc` | ingested document (lane B's `ingest()`; tests build these by hand) |
+| `doc` | document from `ingest()` (tests may build one by hand) |
 | `config` | `LLMConfig` or None for defaults/env |
 | `client` | optional stub with `.generate(prompt, config)` for offline tests |
 
-Raises nothing on bad findings — malformed items are skipped and logged; the
-analysis always returns a well-formed `Analysis`.
+Malformed findings are skipped and logged. A chunk group with no valid JSON
+after retries is skipped; skipped clause IDs go in `coverage["not_analysed"]`
+(with `coverage["incomplete"] = True`) and a warning is appended to
+`doc.extraction_warnings`. If the model stops responding mid-run the partial
+result is returned the same way. Raises `LLMError` only when the model cannot
+be reached at all.
 
 ### `ask(doc: Document, question: str, config=None, client=None) -> Reply`
 
 Question answering. Order matters:
 
-1. **Code routes first** — `classify_question()` (lane C, local fallback
-   until it lands) sends verdict requests and off-topic questions to a
-   deterministic refusal template. **Gemma is never called for these.**
-2. Top-3 passages retrieved (lane B's `retrieve()`, lexical stub until it lands).
+1. **Code routes first**: `classify_question()` sends verdict requests and
+   off-topic questions to a deterministic refusal template. **Gemma is never
+   called for these.**
+2. Top-3 passages retrieved by `retrieve()` (hybrid BM25 + embeddings).
 3. The `qa` prompt returns JSON with `text`, `citations`, `silent`, `refused`.
-4. Reply citations go through lane C's verifier (skipped while the stub regime
-   is active); a failed verification collapses the reply to the fixed silent
-   text — never the model's answer with citations stripped.
+4. Reply citations go through the verifier; a failed verification collapses
+   the reply to the fixed silent text, never the model's answer with citations
+   stripped. A malformed reply returns `NO_ANSWER_TEXT`; a dead server raises
+   `LLMError`.
 
 Constants: `SILENT_TEXT` (the fixed "document does not appear to say…"
-message) — use it, don't retype it.
+message) and `NO_ANSWER_TEXT`. Use them; don't retype them.
 
 ## Gemma client — `legallens/llm.py` *(landed)*
 
@@ -104,7 +110,9 @@ _validate_findings_payload(parsed) -> str | None
 ```python
 LLMConfig(base_url="http://127.0.0.1:8080", max_tokens=2048,
           temperature=0.1, context_window=8192, max_retries=2, timeout=120.0)
-    .from_env()   # honours GEMMA_BASE_URL, GEMMA_TIMEOUT
+    .from_env()   # honours GEMMA_BASE_URL (must be 127.0.0.1/localhost, else
+                  # ValueError) and GEMMA_TIMEOUT
+load_dotenv(path=None)   # reads the gitignored .env at import; real env wins
 ```
 
 Telemetry kill-switches are applied at import: `HF_HUB_OFFLINE`,
@@ -125,35 +133,42 @@ no unit conversion, no legality judgments, verdict backstop.
 ## Interfaces provided by other lanes (import boundaries)
 
 ```python
-# Lane B — ingest landed (legallens/ingest.py); retrieve pending
+# Lane B (legallens/ingest.py, retrieve.py)
 ingest(path: str | Path) -> Document      # never raises on bad files: empty passages + extraction_warnings
 document_text(doc: Document) -> str       # text that Passage.start/end index into
 retrieve(doc: Document, query: str, k: int = 3) -> list[tuple[Passage, float]]
+    # best first; score = relevance in [0, 1] (cosine, or BM25 relative to the best match)
+clear_cache() -> None                     # drop in-memory indexes ("clear session")
 
-# Lane C — landed (legallens/verify.py, safety.py, injection.py)
+# Lane C (legallens/priority.py)
+severity(f: Finding) -> float             # PLAN 5.4: kind x confidence x label
+tier(f: Finding) -> "critical" | "important" | "informational"
+prioritise(findings) -> list[Finding]     # most severe first, unverified last
+
+# Lane C (legallens/verify.py, safety.py, injection.py)
 verify(item: Finding | Reply | Analysis, doc: Document) -> VerifyResult
 classify_question(question: str) -> "explain" | "document_question" | "verdict_request" | "off_topic"
 refusal_reply(question: str, kind: str) -> Reply
 apply_safety(item: Analysis | Reply, doc: Document) -> SafeOutput
 scan_document(doc: Document) -> list[str]   # injection pre-scan, wired into analyze()
 
-# Lane D — pending
+# Lane D (planned: bench/)
 load_sample(name: str) -> str
 eval_set() -> list[EvalCase]
 ```
 
-`analyze.py` imports each lazily; lane C's modules have landed, so the
-pipeline now runs real grounding verification, label downgrade,
-ambiguity/jurisdiction flagging and the injection pre-scan instead of the
-permissive stubs (lane B's `retrieve` remains pending and still falls back to a
-lexical stub). See `legallens/verify.py`, `legallens/safety.py`,
-`legallens/injection.py` and `docs/examples/SAFETY_EXAMPLES.md` for the
-landed contract and test evidence.
+`analyze.py` imports each lazily. Every module has landed, so the pipeline runs
+real retrieval, grounding verification, labels and flags, the injection
+pre-scan and severity ordering; the fallbacks remain only so each lane stays
+testable on its own. See `docs/examples/SAFETY_EXAMPLES.md` for safety test
+evidence.
 
 ## CLI
 
 ```bash
 python smoke.py          # offline demo: analyze + ask against StubGemma
 python smoke.py --real   # same flow against a live llama-server
+python smoke.py --file data/samples/rental_clear.pdf   # real file: ingest -> analyze -> 3 questions
+python -m legallens.ingest FILE                       # show how a file splits into clauses
 pytest tests/ -q         # deterministic suite, no model/network needed
 ```
