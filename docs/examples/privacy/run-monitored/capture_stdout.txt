@@ -1,5 +1,5 @@
 verdict: PASS
 network events: 12 total, 0 non-loopback
 targets: 127.0.0.1:8080, dns:127.0.0.1, http://127.0.0.1:8080/v1/chat/completions
-files changed during run: 7; canary outside run-monitored/: 0
-timings: {'ingest_s': 0.0, 'analyze_s': 132.2, 'ask: What is the notice period?': 14.8, 'ask: Can I keep a pet?': 7.6, 'ask: Is the late fee enforceable?': 0.0}
+files changed during run: 17; canary outside run-monitored/: 0
+timings: {'ingest_s': 0.0, 'analyze_s': 110.7, 'ask: What is the notice period?': 29.1, 'ask: Can I keep a pet?': 21.2, 'ask: Is the late fee enforceable?': 0.0}

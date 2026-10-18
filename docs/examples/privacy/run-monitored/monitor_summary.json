@@ -1,10 +1,10 @@
 ﻿{
-    "started":  "2026-10-18 17.43.31",
-    "duration_s":  159.7,
+    "started":  "2026-10-18 18.15.54",
+    "duration_s":  166,
     "poll_interval_ms":  200,
-    "samples":  86,
+    "samples":  150,
     "watched":  [
-                    "python (LegalLens) pid 17536",
+                    "python (LegalLens) pid 29196",
                     "llama-server pid 11400"
                 ],
     "endpoints_seen":  13,
