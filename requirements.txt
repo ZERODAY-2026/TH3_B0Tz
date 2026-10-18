@@ -6,9 +6,11 @@
 # --- core (lane A) ----------------------------------------------------------
 # stdlib only for the LLM client (urllib) — deliberately no HTTP dependency
 
-# --- lane B (pending): ingestion + retrieval --------------------------------
-# pypdf>=4.0
-# pdfplumber>=0.11
+# --- lane B: ingestion (landed) ---------------------------------------------
+pypdf==6.17.0                    # PDF text extraction (first choice)
+pdfplumber==0.11.10              # fallback for layout-heavy pages
+
+# --- lane B (pending): retrieval ---------------------------------------------
 # rank-bm25>=0.2.2
 # faiss-cpu>=1.8.0
 # sentence-transformers>=3.0     # local MiniLM-class embeddings, setup-time download

@@ -7,6 +7,7 @@ land. With a real llama-server running, swap --real in.
 Usage:
     python smoke.py            # offline stub run (no keys, no server)
     python smoke.py --real     # real Gemma via 127.0.0.1:8080
+    python smoke.py --file data/samples/rental_clear.pdf   # real file + real Gemma
 """
 from __future__ import annotations
 
@@ -61,7 +62,39 @@ def build_client():
     })
 
 
+def run_file(path: str) -> None:
+    """Real file end to end: ingest() -> analyze() -> ask() on real Gemma."""
+    import time
+
+    from legallens.ingest import ingest
+
+    doc = ingest(path)
+    print(f"=== ingest({doc.source_name}): {len(doc.passages)} passages ===")
+    for w in doc.extraction_warnings:
+        print(f"  ! {w}")
+    if not doc.passages:
+        return
+    t0 = time.perf_counter()
+    a = analyze(doc)
+    print(f"\n=== analyze(): {time.perf_counter() - t0:.0f}s ===")
+    print(f"summary: {a.summary}\n")
+    for f in a.findings:
+        state = "UNVERIFIED" if "unverified" in f.flags else "ok"
+        print(f"[{f.kind}/{f.label}/{state}] {f.plain_text}")
+        print(f"    quote: \"{f.quote[:80]}\"  ({f.passage_id})")
+    print(f"coverage: {a.coverage}")
+    for q in ("What is the notice period?", "Can I keep a pet?", "Is the late fee enforceable?"):
+        t0 = time.perf_counter()
+        r = ask(doc, q)
+        print(f"\n=== ask({q!r}): {time.perf_counter() - t0:.0f}s  silent={r.silent} refused={r.refused}")
+        print(f"text: {r.text}")
+        print(f"citations: {[(c.passage_id, c.quote[:50]) for c in r.citations]}")
+
+
 def main() -> None:
+    if "--file" in sys.argv:
+        run_file(sys.argv[sys.argv.index("--file") + 1])
+        return
     client = build_client()
     kwargs = {} if client is None else {"client": client}
 
