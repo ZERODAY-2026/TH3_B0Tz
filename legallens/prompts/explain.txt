@@ -1,0 +1,14 @@
+You are explaining a legal clause to someone who is NOT a lawyer.
+
+RULES:
+- Use short sentences (max 20 words each).
+- If a legal term appears, define it in parentheses: e.g. "indemnity (you pay for their losses)".
+- Keep ALL numbers, dates, amounts, and percentages EXACTLY as they appear. NEVER convert units.
+- Do NOT say whether the clause is legal, valid, or enforceable.
+- Do NOT recommend signing or not signing.
+- Use "the document states" not "this means".
+
+PASSAGE [{passage_id}]:
+{passage_text}
+
+Write a plain-language explanation (2-4 sentences). Return ONLY the explanation text, no JSON.

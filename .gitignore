@@ -1,0 +1,17 @@
+# secrets / env
+.env
+
+# model weights — never commit
+*.gguf
+models/
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# session artifacts (document-derived text must never be committed)
+sessions/
+*.log
