@@ -163,7 +163,7 @@ pytest tests/ -q        # deterministic unit + contract tests (no model needed)
 python bench/run.py     # eval: citation accuracy, verifier rate, silence/refusal (lane D)
 ```
 
-Current state: **110 tests passing** — LLM client, analysis pipeline, grounding
+Current state: **128 tests passing** — LLM client, analysis pipeline, grounding
 verifier, safety layer, injection defence and ingestion (clause chunking,
 header/footer stripping, malformed files).
 
@@ -216,7 +216,7 @@ header/footer stripping, malformed files).
 | **A** — Gemma + analysis pipeline | `llm.py`, `prompts/`, `analyze.py` | **Landed** — 20 tests, offline smoke demo |
 | **B** — ingest, retrieve, privacy | `ingest.py`, `retrieve.py`, `privacy/` | `ingest.py` **landed** (PDF + .txt, 20 tests); `retrieve.py` and `privacy/` pending |
 | **C** — grounding + safety | `verify.py`, `safety.py`, `injection.py` | **Landed** — 58 tests (verify 20, safety 27, injection 7, pipeline integration 4) |
-| **D** — UI, bench, docs, demo | `app/`, `bench/`, samples | Pending |
+| **D** — UI, bench, docs, demo | `app/`, `bench/`, `data/samples/`, `docs/` | **Landed** — Gradio UI, 18 tests, eval harness, CI workflow |
 
 `analyze.py` auto-swaps to B's and C's real modules the moment they are
 importable — no pipeline changes needed. With lane C landed, `analyze()` and

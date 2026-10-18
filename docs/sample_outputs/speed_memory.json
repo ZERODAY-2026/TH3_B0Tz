@@ -1,0 +1,92 @@
+[
+  {
+    "file": "employment_conflict.txt",
+    "passages": 10,
+    "warnings": 0,
+    "latency_s": 0.001,
+    "mem_before_mb": 23.4,
+    "mem_after_mb": 23.4,
+    "mem_delta_mb": 0.0
+  },
+  {
+    "file": "employment_standard.txt",
+    "passages": 9,
+    "warnings": 0,
+    "latency_s": 0.001,
+    "mem_before_mb": 23.4,
+    "mem_after_mb": 23.4,
+    "mem_delta_mb": 0.0
+  },
+  {
+    "file": "injected.txt",
+    "passages": 7,
+    "warnings": 0,
+    "latency_s": 0.001,
+    "mem_before_mb": 23.4,
+    "mem_after_mb": 23.4,
+    "mem_delta_mb": 0.0
+  },
+  {
+    "file": "corrupt.pdf",
+    "passages": 0,
+    "warnings": 1,
+    "latency_s": 0.36,
+    "mem_before_mb": 23.4,
+    "mem_after_mb": 36.4,
+    "mem_delta_mb": 13.0
+  },
+  {
+    "file": "empty.txt",
+    "passages": 0,
+    "warnings": 1,
+    "latency_s": 0.0,
+    "mem_before_mb": 36.4,
+    "mem_after_mb": 36.4,
+    "mem_delta_mb": 0.0
+  },
+  {
+    "file": "password.pdf",
+    "passages": 0,
+    "warnings": 1,
+    "latency_s": 0.025,
+    "mem_before_mb": 36.4,
+    "mem_after_mb": 37.1,
+    "mem_delta_mb": 0.7
+  },
+  {
+    "file": "scanned.pdf",
+    "passages": 0,
+    "warnings": 1,
+    "latency_s": 0.003,
+    "mem_before_mb": 37.1,
+    "mem_after_mb": 37.1,
+    "mem_delta_mb": 0.0
+  },
+  {
+    "file": "rental_clear.pdf",
+    "passages": 17,
+    "warnings": 0,
+    "latency_s": 0.016,
+    "mem_before_mb": 37.1,
+    "mem_after_mb": 37.3,
+    "mem_delta_mb": 0.2
+  },
+  {
+    "file": "rental_clear.txt",
+    "passages": 17,
+    "warnings": 0,
+    "latency_s": 0.001,
+    "mem_before_mb": 37.3,
+    "mem_after_mb": 37.3,
+    "mem_delta_mb": 0.0
+  },
+  {
+    "file": "rental_vague.txt",
+    "passages": 11,
+    "warnings": 0,
+    "latency_s": 0.001,
+    "mem_before_mb": 37.3,
+    "mem_after_mb": 37.3,
+    "mem_delta_mb": 0.0
+  }
+]

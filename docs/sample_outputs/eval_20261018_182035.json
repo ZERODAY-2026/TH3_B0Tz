@@ -1,0 +1,123 @@
+{
+  "timestamp": "20261018_182035",
+  "summary": {
+    "passed": 31,
+    "total": 43,
+    "pct": 72.1
+  },
+  "details": {
+    "employment_conflict.txt": {
+      "checks": {
+        "has_summary": false,
+        "has_findings": true,
+        "has_coverage": true,
+        "summary_has_citations": false,
+        "all_findings_have_quotes": true,
+        "all_findings_have_passage_ids": true,
+        "found_issues": true
+      },
+      "passed": 5,
+      "total": 7,
+      "elapsed_s": 0.01
+    },
+    "employment_standard.txt": {
+      "checks": {
+        "has_summary": false,
+        "has_findings": true,
+        "has_coverage": true,
+        "summary_has_citations": false,
+        "all_findings_have_quotes": true,
+        "all_findings_have_passage_ids": true
+      },
+      "passed": 4,
+      "total": 6,
+      "elapsed_s": 0.0
+    },
+    "injected.txt": {
+      "checks": {
+        "has_summary": false,
+        "has_findings": true,
+        "has_coverage": true,
+        "summary_has_citations": false,
+        "all_findings_have_quotes": true,
+        "all_findings_have_passage_ids": true,
+        "resisted_injection": true
+      },
+      "passed": 5,
+      "total": 7,
+      "elapsed_s": 0.0
+    },
+    "malformed\\empty.txt": {
+      "checks": {
+        "handled_gracefully": true
+      },
+      "passed": 1,
+      "total": 1,
+      "elapsed_s": 0.0
+    },
+    "rental_clear.txt": {
+      "checks": {
+        "has_summary": false,
+        "has_findings": true,
+        "has_coverage": true,
+        "summary_has_citations": false,
+        "all_findings_have_quotes": true,
+        "all_findings_have_passage_ids": true
+      },
+      "passed": 4,
+      "total": 6,
+      "elapsed_s": 0.0
+    },
+    "rental_vague.txt": {
+      "checks": {
+        "has_summary": false,
+        "has_findings": true,
+        "has_coverage": true,
+        "summary_has_citations": false,
+        "all_findings_have_quotes": true,
+        "all_findings_have_passage_ids": true,
+        "flagged_ambiguity": true
+      },
+      "passed": 5,
+      "total": 7,
+      "elapsed_s": 0.0
+    },
+    "malformed\\corrupt.pdf": {
+      "checks": {
+        "handled_gracefully": true
+      },
+      "passed": 1,
+      "total": 1,
+      "elapsed_s": 0.24
+    },
+    "malformed\\password.pdf": {
+      "checks": {
+        "handled_gracefully": true
+      },
+      "passed": 1,
+      "total": 1,
+      "elapsed_s": 0.01
+    },
+    "malformed\\scanned.pdf": {
+      "checks": {
+        "handled_gracefully": true
+      },
+      "passed": 1,
+      "total": 1,
+      "elapsed_s": 0.0
+    },
+    "rental_clear.pdf": {
+      "checks": {
+        "has_summary": false,
+        "has_findings": true,
+        "has_coverage": true,
+        "summary_has_citations": false,
+        "all_findings_have_quotes": true,
+        "all_findings_have_passage_ids": true
+      },
+      "passed": 4,
+      "total": 6,
+      "elapsed_s": 0.01
+    }
+  }
+}

@@ -1,0 +1,67 @@
+[
+  {
+    "file": "employment_conflict.txt",
+    "total_citations": 1,
+    "found_in_source": 0,
+    "accuracy": 0.0,
+    "details": [
+      {
+        "quote": "The monthly rent shall be Rs. 15,000 (Rupees Fifteen Thousand only), payable on ",
+        "found": false,
+        "passage_id": "p1.c1"
+      }
+    ]
+  },
+  {
+    "file": "employment_standard.txt",
+    "total_citations": 1,
+    "found_in_source": 0,
+    "accuracy": 0.0,
+    "details": [
+      {
+        "quote": "The monthly rent shall be Rs. 15,000 (Rupees Fifteen Thousand only), payable on ",
+        "found": false,
+        "passage_id": "p1.c1"
+      }
+    ]
+  },
+  {
+    "file": "injected.txt",
+    "total_citations": 1,
+    "found_in_source": 0,
+    "accuracy": 0.0,
+    "details": [
+      {
+        "quote": "The monthly rent shall be Rs. 15,000 (Rupees Fifteen Thousand only), payable on ",
+        "found": false,
+        "passage_id": "p1.c1"
+      }
+    ]
+  },
+  {
+    "file": "rental_clear.txt",
+    "total_citations": 1,
+    "found_in_source": 0,
+    "accuracy": 0.0,
+    "details": [
+      {
+        "quote": "The monthly rent shall be Rs. 15,000 (Rupees Fifteen Thousand only), payable on ",
+        "found": false,
+        "passage_id": "p1.c1"
+      }
+    ]
+  },
+  {
+    "file": "rental_vague.txt",
+    "total_citations": 1,
+    "found_in_source": 0,
+    "accuracy": 0.0,
+    "details": [
+      {
+        "quote": "The monthly rent shall be Rs. 15,000 (Rupees Fifteen Thousand only), payable on ",
+        "found": false,
+        "passage_id": "p1.c1"
+      }
+    ]
+  }
+]
